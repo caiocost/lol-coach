@@ -102,8 +102,8 @@ const LOG_NA_TELA = 120;
 // nuvem — e um PiperClient de voz sintética. Os dois saíram: o coach só fala
 // com a voz gravada pelo usuário. Não reintroduza sem essa decisão mudar.
 const voice = new VoiceQueue({ resolverSom, tocar });
-// COACH_VOZ=0 sobe com a voz desligada (dá pra ligar pelo botão da página).
-if (process.env.COACH_VOZ === "0") voice.habilitado = false;
+// A voz sobe desligada (liga pelo botão da página); COACH_VOZ=1 sobe ligada.
+if (process.env.COACH_VOZ === "1") voice.habilitado = true;
 
 // Alertas criados pelo usuário. Recarregados sob demanda (a página avisa
 // quando cria ou apaga) em vez de a cada poll: ler o disco 1x/s por uma lista
@@ -1135,6 +1135,7 @@ createServer(async (req, res) => {
         som: base,
         texto: doCatalogo.suggestion,
         prioridade: 1,
+        forcar: true,
       });
       res.writeHead(200, { "content-type": "application/json" });
       res.end(JSON.stringify({ ok: true, som: base, texto: doCatalogo.suggestion }));

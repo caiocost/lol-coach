@@ -38,6 +38,11 @@ export interface Fala {
   prioridade?: number;
   /** Depois disto a fala perdeu o sentido. */
   expiraEm?: number;
+  /**
+   * Toca mesmo com o som desligado. So para a pre-escuta do painel: e um
+   * clique explicito, e muda ela pareceria gravacao quebrada.
+   */
+  forcar?: boolean;
 }
 
 // Sem campo `fonte`: com o TTS fora existe uma unica origem possivel (a
@@ -66,7 +71,8 @@ export class VoiceQueue {
   private ciclo: Promise<void> = Promise.resolve();
 
   public historico: FalaDita[] = [];
-  public habilitado = true;
+  // Desligado por padrao: o coach abre calado e o usuario liga no botao.
+  public habilitado = false;
   public volume = 1;
 
   private readonly cooldownMs: number;
@@ -79,7 +85,7 @@ export class VoiceQueue {
 
   /** Enfileira. Nao espera a fala sair. */
   async falar(f: Fala) {
-    if (!this.habilitado) return;
+    if (!this.habilitado && !f.forcar) return;
     if (this.vistas.has(f.chave)) return;
     this.vistas.add(f.chave);
     this.pendentes.push({ ...f, prioridade: f.prioridade ?? 2 });
@@ -117,11 +123,15 @@ export class VoiceQueue {
   }
 
   private async bombear(): Promise<void> {
-    if (this.falando || !this.habilitado) return;
+    if (this.falando) return;
     if (Date.now() - this.ultimaEm < this.cooldownMs) return;
 
     const agora = Date.now();
-    this.pendentes = this.pendentes.filter((p) => !p.expiraEm || p.expiraEm > agora);
+    // Desligado no meio da fila: o que ja estava pendente tambem cala, menos
+    // a pre-escuta forcada.
+    this.pendentes = this.pendentes.filter(
+      (p) => (!p.expiraEm || p.expiraEm > agora) && (this.habilitado || p.forcar),
+    );
     if (!this.pendentes.length) return;
 
     this.pendentes.sort((a, b) => a.prioridade - b.prioridade);

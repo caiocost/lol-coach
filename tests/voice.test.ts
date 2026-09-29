@@ -11,6 +11,8 @@ function fazerFila(opts: { temGravacao?: (c: string) => boolean } = {}) {
       (opts.temGravacao?.(som) ?? false) ? `/fake/${som}.wav` : null,
     tocar: async (caminho: string) => { tocados.push(caminho); },
   });
+  // O padrao e desligado; os testes de comportamento partem do som ligado.
+  fila.habilitado = true;
 
   return { fila, tocados };
 }
@@ -78,5 +80,33 @@ describe("VoiceQueue", () => {
     await fila.drenar();
 
     expect(fila.historico.map((h) => h.chave)).toEqual(["gravada"]);
+  });
+
+  // Som desligado por padrao: o coach abre calado e o usuario liga se quiser.
+  it("comeca desligado e nao toca nada ate ser ligado", async () => {
+    const tocados: string[] = [];
+    const fila = new VoiceQueue({
+      cooldownMs: 0,
+      resolverSom: async (som: string) => `/fake/${som}.wav`,
+      tocar: async (caminho: string) => { tocados.push(caminho); },
+    });
+    expect(fila.habilitado).toBe(false);
+    expect(fila.status.habilitado).toBe(false);
+
+    await fila.falar({ chave: "cw-1", som: "control-ward", texto: "Compra control ward" });
+    await fila.drenar();
+    expect(tocados).toEqual([]);
+  });
+
+  // A pre-escuta do painel e um clique explicito: com o som desligado por
+  // padrao, ela ficaria muda e pareceria gravacao quebrada.
+  it("amostra forcada toca mesmo com o som desligado", async () => {
+    const { fila, tocados } = fazerFila({ temGravacao: () => true });
+    fila.habilitado = false;
+    await fila.falar({ chave: "alerta", som: "alerta", texto: "a" });
+    await fila.falar({ chave: "amostra-1", som: "amostra", texto: "b", forcar: true });
+    await fila.drenar();
+
+    expect(tocados).toEqual(["/fake/amostra.wav"]);
   });
 });
