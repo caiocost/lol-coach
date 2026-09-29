@@ -3,7 +3,7 @@
 Coach ao vivo para League of Legends que roda do lado do seu PC, lendo só as
 APIs locais que o próprio jogo expõe. Sem Overwolf, sem injeção, sem overlay.
 
-![partida](docs/partida.png)
+![luzes num abate](docs/luzes-kill.gif)
 
 - **Avisos de objetivo** — cronômetro de dragão, vastilarvas, arauto, barão e
   ancião, contado a partir do evento real de morte (não de ciclo fixo). Avisa
@@ -23,6 +23,8 @@ APIs locais que o próprio jogo expõe. Sem Overwolf, sem injeção, sem overlay
   [OpenRGB](https://openrgb.org) já vem junto.
 - **Bandeja do Windows** — o coach fica perto do relógio, sem janela de
   console, com som, luzes e "iniciar com o Windows" num clique.
+
+![partida](docs/partida.png)
 
 ## Instalar (qualquer PC com Windows)
 
@@ -96,8 +98,6 @@ com áudios de exemplo.
 - `http://localhost:7778/?draft=1` — draft de exemplo
 
 ## Luzes RGB
-
-![luzes num abate](docs/luzes-kill.gif)
 
 O pacote traz o [OpenRGB](https://openrgb.org) 1.0 e o coach abre ele sozinho,
 sem janela. Se você já usa o OpenRGB, deixe o seu aberto com o **SDK Server**
