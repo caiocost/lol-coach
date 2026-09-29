@@ -35,8 +35,10 @@ if (-not $asset) { throw "A release $($rel.tag_name) nao tem o zip para Windows.
 Passo "versao $($rel.tag_name)"
 
 # 2. Coach aberto trava os arquivos: fecha o que estiver rodando desta pasta.
+# A bandeja (powershell/wscript) e o OpenRGB embarcado tambem seguram a pasta.
 $rodando = Get-CimInstance Win32_Process | Where-Object {
-  ($_.Name -in "node.exe", "python.exe", "cmd.exe") -and $_.CommandLine -and $_.CommandLine.Contains($Destino)
+  ($_.Name -in "node.exe", "python.exe", "cmd.exe", "powershell.exe", "wscript.exe", "OpenRGB.exe") -and
+  $_.CommandLine -and $_.CommandLine.Contains($Destino)
 }
 if ($rodando) {
   Passo "fechando o coach que estava aberto..."
@@ -73,22 +75,26 @@ Move-Item $novo $Destino
 Remove-Item -Recurse -Force $Tmp
 
 # 5. Atalho no Menu Iniciar (e na Area de Trabalho).
+# O atalho abre a bandeja (coach\bandeja.vbs), que sobe o coach sem console.
 $sh = New-Object -ComObject WScript.Shell
-$alvo = Join-Path $Destino "Iniciar Coach.cmd"
+$vbs = Join-Path $Destino "coach\bandeja.vbs"
+$wscript = Join-Path $env:WINDIR "System32\wscript.exe"
 foreach ($pasta in @(
     (Join-Path ([Environment]::GetFolderPath("StartMenu")) "Programs"),
     [Environment]::GetFolderPath("Desktop"))) {
   $lnk = $sh.CreateShortcut((Join-Path $pasta "LoL Coach.lnk"))
-  $lnk.TargetPath = $alvo
+  $lnk.TargetPath = $wscript
+  $lnk.Arguments = "`"$vbs`""
   $lnk.WorkingDirectory = $Destino
-  $lnk.IconLocation = (Join-Path $Destino "runtime\node.exe") + ",0"
+  $lnk.IconLocation = (Join-Path $Destino "coach\assets\icone.ico") + ",0"
   $lnk.Save()
 }
 
 Write-Host ""
 Write-Host "  Pronto: LoL Coach $($rel.tag_name) instalado em $Destino" -ForegroundColor Green
 Write-Host "  Abra pelo atalho 'LoL Coach' no Menu Iniciar ou na Area de Trabalho."
+Write-Host "  O coach fica na bandeja (perto do relogio): som, luzes e iniciar com o Windows."
 Write-Host "  Para atualizar no futuro, rode o mesmo comando de novo."
 Write-Host ""
 
-Start-Process -FilePath $alvo -WorkingDirectory $Destino
+Start-Process -FilePath $wscript -ArgumentList "`"$vbs`""

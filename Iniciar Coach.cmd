@@ -1,10 +1,8 @@
 @echo off
-REM Inicia o LoL Coach (pacote portatil) e abre a tela no navegador.
+REM Abre o LoL Coach: icone na bandeja (perto do relogio) + tela no navegador.
+REM Para ver os logs ao vivo num console, rode "npm run coach" na pasta.
 cd /d "%~dp0"
-title LoL Coach
 
-set "NODE=runtime\node.exe"
-if not exist "%NODE%" set "NODE=node"
 if not exist "node_modules\tsx" (
   echo.
   echo   Faltam os arquivos do pacote. Baixe o LoL-Coach-...-win-x64.zip
@@ -14,10 +12,4 @@ if not exist "node_modules\tsx" (
   exit /b 1
 )
 
-REM abre a tela depois que os servidores sobem
-start "" /b cmd /c "timeout /t 5 /nobreak >nul & start http://localhost:7778"
-
-"%NODE%" coach\start.mjs
-echo.
-echo   Coach encerrado.
-pause
+start "" wscript.exe "%~dp0coach\bandeja.vbs"

@@ -4,5 +4,5 @@ node_modules/
 data/
 __pycache__/
 .pytest_cache/
-coach/autostart.log
+coach/coach.log
 dist/
