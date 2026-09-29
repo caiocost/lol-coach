@@ -1825,7 +1825,10 @@ async function luzStatus(){
     el.textContent = s.openrgb
       ? `OpenRGB conectado · ${disp}` + (s.efeitoAtual ? ` · tocando: ${s.efeitoAtual}` : '')
         + (s.partida ? ' · em partida' : '') + (s.aguaPendente ? ' · água pendente' : '')
-      : 'Daemon ligado, mas o OpenRGB não respondeu (servidor fechado?). Tentando de novo a cada 5 s.';
+        // RAM e parte das placas falam SMBus: sem o driver PawnIO e sem admin o
+        // OpenRGB simplesmente não as enxerga. Dizer isso aqui poupa a caça.
+        + (!d.ram || !d.placa ? ' — RAM/placa não detectadas costumam precisar do PawnIO e do OpenRGB como administrador (veja o README, seção Luzes RGB)' : '')
+      : 'Procurando o OpenRGB (a detecção leva alguns segundos). Se não conectar, veja o README, seção Luzes RGB.';
     resumo.textContent = s.openrgb ? 'conectado' : 'sem OpenRGB';
   } catch { el.textContent = 'Coach sem resposta.'; }
 }
