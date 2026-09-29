@@ -97,6 +97,8 @@ com áudios de exemplo.
 
 ## Luzes RGB
 
+![luzes num abate](docs/luzes-kill.gif)
+
 O pacote traz o [OpenRGB](https://openrgb.org) 1.0 e o coach abre ele sozinho,
 sem janela. Se você já usa o OpenRGB, deixe o seu aberto com o **SDK Server**
 ligado (porta 6742): o coach usa o seu em vez do embarcado.
