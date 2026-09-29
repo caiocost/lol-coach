@@ -1,0 +1,25 @@
+{
+  "name": "lol-coach",
+  "version": "1.0.0",
+  "description": "Coach ao vivo para League of Legends: avisos de objetivo, alertas por voz gravada e luzes RGB no teclado via OpenRGB.",
+  "type": "module",
+  "license": "MIT",
+  "scripts": {
+    "coach": "node coach/start.mjs",
+    "coach:draft": "tsx coach/server.ts",
+    "coach:ingame": "tsx coach/ingame.ts",
+    "test": "vitest run",
+    "test:rgb": "python -m pytest rgb",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "undici": "^6.19.0",
+    "tsx": "^4.19.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.6.0",
+    "vitest": "^2.1.0"
+  }
+}

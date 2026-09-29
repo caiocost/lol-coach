@@ -1,0 +1,1830 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>LoL Coach</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600&family=Inter:wght@400;500;600&display=swap">
+<style>
+  :root{
+    --bg:#10141a; --surface:#181f28; --surface-2:#212a36; --line:#2c3644;
+    --ink:#e9edf3; --ink-2:#93a3b8; --ink-3:#6a7a8d;
+    --accent:#d9a441; --accent-bg:#2a2314;
+    --good:#5cb283; --good-bg:#162b21; --bad:#d4705a; --bad-bg:#2f1c17;
+    /* Escala de espaçamento. Antes cada bloco escolhia o próprio valor
+       (3,5,7,8,10,11,14px), o que deixava tudo apertado e sem ritmo comum. */
+    --s1:4px; --s2:8px; --s3:12px; --s4:16px; --s5:22px; --s6:30px;
+    /* padding interno padrão de um cartão e de uma linha de lista */
+    --pad-card:14px 16px; --pad-row:9px 16px;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;padding:var(--s5) var(--s4) var(--s6);background:var(--bg);color:var(--ink);
+    font-family:Inter,system-ui,sans-serif;font-size:14px;line-height:1.45}
+  .wrap{max-width:880px;margin:0 auto;display:flex;flex-direction:column;gap:var(--s5)}
+  header{display:flex;align-items:center;gap:var(--s3);flex-wrap:wrap;
+    border-bottom:2px solid var(--line);padding-bottom:var(--s3)}
+  h1{font-family:Oswald,sans-serif;font-weight:600;font-size:20px;letter-spacing:.03em;
+    text-transform:uppercase;margin:0}
+  .clock{margin-left:auto;font-family:Oswald,sans-serif;font-size:22px;
+    font-variant-numeric:tabular-nums;color:var(--ink-2)}
+  .clock b{color:var(--accent)}
+  .phase{font-family:Oswald,sans-serif;font-size:11px;letter-spacing:.1em;text-transform:uppercase;
+    padding:3px 9px;background:var(--surface-2);color:var(--ink-2)}
+  .phase.p15{background:var(--accent-bg);color:var(--accent)}
+
+  /* Lista de partidas, no espirito do op.gg. */
+  #matchesPanel{background:var(--surface);border:1px solid var(--line)}
+  #matchesPanel>summary{cursor:pointer;padding:var(--s3) var(--s4);list-style:none;
+    display:flex;align-items:center;gap:var(--s2);font-family:Oswald,sans-serif;
+    font-size:12px;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-2)}
+  #matchesPanel>summary::-webkit-details-marker{display:none}
+  #matchesPanel>summary::before{content:"▸";color:var(--ink-3);font-size:10px}
+  #matchesPanel[open]>summary::before{content:"▾"}
+  #matchesPanel>summary .mc{margin-left:auto;text-transform:none;letter-spacing:0;
+    font-family:Inter,sans-serif;font-size:12px;color:var(--ink-3)}
+
+  .mhead{display:flex;align-items:center;gap:var(--s5);flex-wrap:wrap;
+    padding:var(--s4) var(--s4) var(--s3);border-bottom:1px solid var(--line)}
+  .mhead .big{font-family:Oswald,sans-serif;font-size:26px;font-variant-numeric:tabular-nums}
+  .mhead .big.pos{color:var(--good)} .mhead .big.neg{color:var(--bad)}
+  .mhead .lbl{font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;
+    color:var(--ink-3);display:block}
+  .mhead .champs{display:flex;gap:var(--s2);margin-left:auto;flex-wrap:wrap}
+  .mhead .cz{display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--ink-2)}
+  .mhead .cz img{width:26px;height:26px;border-radius:50%;background:var(--surface-2)}
+
+  .mlist{display:flex;flex-direction:column}
+  .mrow{display:flex;align-items:center;gap:var(--s3);padding:10px var(--s4);
+    border-bottom:1px solid var(--line);border-left:4px solid var(--ink-3);flex-wrap:wrap}
+  .mrow:last-child{border-bottom:none}
+  .mrow.w{border-left-color:var(--good);background:rgba(92,178,131,.05)}
+  .mrow.l{border-left-color:var(--bad);background:rgba(212,112,90,.05)}
+  .mrow.r{border-left-color:var(--ink-3);opacity:.65}
+  .mrow .ci{width:44px;height:44px;border-radius:6px;background:var(--surface-2);flex:0 0 auto}
+
+  /* Ícones do Data Dragon fora da lista de partidas.
+     PREFIXO dd- DE PROPÓSITO: as classes curtas deste arquivo (.ci, .cn, .it,
+     .c) já existem com outro significado dentro de .mrow/.pgv, e uma colisão
+     aqui já restilizou 14 elementos sem ninguém notar. dd- não colide com nada
+     no arquivo — foi conferido antes de escrever.
+     `vertical-align:middle` + o nome do lado: o ícone APOIA o texto, não o
+     substitui. O nome continua legível (e selecionável) sem a imagem. */
+  .dd-c,.dd-i{flex:0 0 auto;border-radius:4px;background:var(--surface-2);
+    vertical-align:middle;object-fit:cover}
+  .dd-c{width:20px;height:20px;border-radius:50%}
+  .dd-i{width:20px;height:20px}
+  .dd-c.big{width:28px;height:28px}
+  .dd-i.big{width:26px;height:26px}
+  /* O ícone e o nome andam juntos e não quebram no meio. */
+  .dd-n{display:inline-flex;align-items:center;gap:6px;min-width:0}
+  /* Fila de itens (build, inventário): embrulha em vez de esticar a linha. */
+  .dd-itens{display:inline-flex;flex-wrap:wrap;gap:3px;vertical-align:middle}
+  .mrow .who{flex:0 0 112px;display:flex;flex-direction:column;gap:1px;min-width:0}
+  .mrow .who .cn{font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;
+    text-overflow:ellipsis}
+  .mrow .who .qn{font-size:10.5px;color:var(--ink-3)}
+  .mrow .sc{flex:0 0 88px;font-family:Oswald,sans-serif;font-size:16px;
+    font-variant-numeric:tabular-nums}
+  .mrow .sc small{display:block;font-family:Inter,sans-serif;font-size:10.5px;
+    color:var(--ink-3);font-weight:400}
+  .mrow .st{flex:1 1 130px;display:flex;gap:var(--s3);flex-wrap:wrap;font-size:11.5px;
+    color:var(--ink-2);font-variant-numeric:tabular-nums}
+  .mrow .st b{color:var(--ink);font-weight:600}
+  .mrow .its{flex:0 0 auto;display:flex;gap:3px;flex-wrap:wrap;max-width:150px}
+  .mrow .its img{width:22px;height:22px;border-radius:3px;background:var(--surface-2)}
+  .mrow .comp{flex:0 0 auto;display:flex;gap:2px}
+  .mrow .comp img{width:18px;height:18px;border-radius:3px;background:var(--surface-2)}
+  .mrow .comp .sep{width:5px}
+  .mrow .ago{flex:0 0 62px;text-align:right;font-size:10.5px;color:var(--ink-3)}
+  .mrow .tag{font-size:9.5px;text-transform:uppercase;letter-spacing:.05em;
+    padding:1px 5px;background:var(--surface-2);color:var(--ink-3)}
+
+  .bank{padding:10px var(--s4);border-top:1px solid var(--line);display:flex;
+    align-items:center;gap:var(--s3);flex-wrap:wrap;font-size:11.5px;color:var(--ink-3)}
+  .bank b{color:var(--ink-2)}
+
+  /* Resumo de fim de partida. */
+  .pg{background:var(--surface);border:1px solid var(--line);border-top:3px solid var(--accent)}
+  .pg .pgh{padding:var(--s4) 18px;border-bottom:1px solid var(--line);
+    display:flex;align-items:baseline;gap:var(--s3);flex-wrap:wrap}
+  .pg .pgt{font-family:Oswald,sans-serif;font-size:17px;letter-spacing:.04em;
+    text-transform:uppercase}
+  .pg .pgs{font-family:Oswald,sans-serif;font-size:15px;color:var(--accent);
+    font-variant-numeric:tabular-nums}
+  .pg .pgd{margin-left:auto;font-size:12px;color:var(--ink-3);font-variant-numeric:tabular-nums}
+  .pg .pgl{padding:var(--s4) 18px;font-size:15px;line-height:1.5;font-weight:500;
+    border-bottom:1px solid var(--line)}
+  .pgv{display:grid;grid-template-columns:repeat(auto-fit,minmax(214px,1fr));gap:1px;
+    background:var(--line)}
+  .pgv .c{background:var(--surface);padding:var(--s3) var(--s4) 14px;display:flex;
+    flex-direction:column;gap:5px}
+  .pgv .cl{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-3)}
+  .pgv .cv{font-family:Oswald,sans-serif;font-size:23px;font-variant-numeric:tabular-nums;
+    display:flex;align-items:baseline;gap:7px;flex-wrap:wrap}
+  .pgv .cv>.n{white-space:nowrap}
+  .pgv .cv .m{font-family:Inter,sans-serif;font-size:11px;color:var(--ink-3);font-weight:400}
+  .pgv .c.ok .cv{color:var(--good)} .pgv .c.no .cv{color:var(--bad)}
+  .pgv .c.na .cv{color:var(--ink-3)}
+  .pgv .src{font-size:10px;text-transform:uppercase;letter-spacing:.05em;
+    padding:1px 6px;align-self:flex-start;background:var(--surface-2);color:var(--ink-3)}
+  .pgv .src.medido{background:var(--good-bg);color:var(--good)}
+  .pgv .cn{font-size:11.5px;color:var(--ink-2);line-height:1.45}
+  .pgf{padding:var(--s4) 18px;border-top:1px solid var(--line);display:flex;
+    flex-direction:column;gap:var(--s2)}
+  .pgf .ft{font-family:Oswald,sans-serif;font-size:11px;letter-spacing:.09em;
+    text-transform:uppercase;color:var(--accent)}
+  .pgf ul{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:6px;
+    font-size:13px;color:var(--ink-2);line-height:1.5}
+  .pgn{padding:var(--s3) 18px;border-top:1px solid var(--line);font-size:12px;
+    color:var(--ink-3);line-height:1.5}
+
+  /* Leitura da partida: bandeiras medidas + plano pós-15 desta composição. */
+  .reading{display:grid;grid-template-columns:repeat(auto-fit,minmax(244px,1fr));gap:var(--s3)}
+  .reading .rf{background:var(--surface);border:1px solid var(--line);
+    border-top:3px solid var(--accent);padding:var(--s3) var(--s4) 14px;display:flex;
+    flex-direction:column;gap:7px}
+  .reading .rf.bad{border-top-color:var(--bad)}
+  .reading .rf.good{border-top-color:var(--good)}
+  .reading .ft{font-size:13.5px;font-weight:600;line-height:1.3}
+  .reading .fp{font-family:Oswald,sans-serif;font-size:19px;font-variant-numeric:tabular-nums}
+  .reading .rf.bad .fp{color:var(--bad)} .reading .rf.good .fp{color:var(--good)}
+  .reading .fp .u{font-family:Inter,sans-serif;font-size:10.5px;color:var(--ink-3);
+    letter-spacing:.05em;text-transform:uppercase;margin-left:4px}
+  .reading .fd{font-size:12px;color:var(--ink-2);line-height:1.42}
+
+  .planbox{background:var(--surface);border:1px solid var(--line);
+    border-left:4px solid var(--accent);padding:var(--s4) 18px;display:flex;
+    flex-direction:column;gap:var(--s2);margin-top:var(--s3)}
+  .planbox .pw{font-family:Oswald,sans-serif;font-size:11px;letter-spacing:.09em;
+    text-transform:uppercase;color:var(--accent)}
+  .planbox .pd{font-size:15.5px;font-weight:600}
+  .planbox ul{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:6px;
+    font-size:12.5px;color:var(--ink-2);line-height:1.5}
+
+  /* Voz do servidor: linha discreta com o ultimo alerta que saiu no
+     alto-falante. E o unico sinal na tela de que a voz esta de pe. */
+  #voz.muted{font-size:11.5px;color:var(--ink-3);line-height:1.5;
+    padding:2px var(--s1)}
+
+  /* .vsmall sobrou do laboratorio de voz (removido): ainda estiliza os
+     botoes de sincronizar e de abrir partida na lista. */
+  .vsmall{font-size:11px;padding:6px 11px;background:var(--surface-2);color:var(--ink-2);
+    border:1px solid var(--line);cursor:pointer;font-family:Inter,sans-serif}
+  .vsmall:hover{border-color:var(--accent);color:var(--ink)}
+
+  .idle{background:var(--surface);border:1px solid var(--line);padding:34px 22px;text-align:center}
+  .idle .big{font-family:Oswald,sans-serif;font-size:18px;margin-bottom:5px;letter-spacing:.03em}
+  .idle .small{color:var(--ink-2);font-size:13px}
+
+  .obj + .obj{margin-top:var(--s2)}
+  .obj{background:var(--surface);border:1px solid var(--line);border-left:4px solid var(--accent);
+    padding:var(--s4) 18px;display:flex;align-items:center;gap:var(--s4)}
+  .obj.hot{border-left-color:var(--bad);background:var(--bad-bg)}
+  .obj .nm{font-family:Oswald,sans-serif;font-size:17px;letter-spacing:.04em;text-transform:uppercase}
+  .obj .in{font-family:Oswald,sans-serif;font-size:30px;font-variant-numeric:tabular-nums;
+    margin-left:auto;color:var(--accent)}
+  .obj.hot .in{color:var(--bad)}
+  .obj .hint{font-size:12.5px;color:var(--ink-2);margin-top:3px;padding:0}
+  .obj .up{font-family:Inter,sans-serif;font-size:10.5px;letter-spacing:.06em;
+    text-transform:uppercase;background:var(--bad);color:#fff;padding:2px 7px;
+    vertical-align:middle;margin-left:6px}
+
+  .alerts{display:flex;flex-direction:column;gap:var(--s2)}
+  .al{padding:var(--s3) var(--s4);border-left:3px solid var(--ink-3);background:var(--surface);font-size:13.5px;line-height:1.45}
+  .al.warn{border-left-color:var(--bad);background:var(--bad-bg)}
+  .al.good{border-left-color:var(--good);background:var(--good-bg)}
+  .al.info{border-left-color:var(--ink-3)}
+
+  h2{font-family:Oswald,sans-serif;font-weight:500;font-size:11.5px;letter-spacing:.14em;
+    text-transform:uppercase;color:var(--ink-2);margin:0 0 var(--s3);display:flex;align-items:center;gap:var(--s3)}
+  h2::after{content:"";flex:1;height:1px;background:var(--line)}
+  /* o .wrap usa gap, mas seções encostam quando o bloco anterior é denso */
+  section{display:flex;flex-direction:column}
+  /* #app é filho único de .wrap, então o gap do .wrap não separa as sections
+     entre si — o título de uma colava no cartão da anterior. */
+  #app{display:flex;flex-direction:column;gap:var(--s5)}
+  #draftPane{display:flex;flex-direction:column;gap:var(--s5)}
+
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:var(--s3)}
+  .m{background:var(--surface);border:1px solid var(--line);padding:var(--s3) var(--s4) 14px;
+    display:flex;flex-direction:column;gap:5px}
+  .m.ok{border-color:var(--good)} .m.no{border-color:var(--bad)}
+  .m .lab{font-size:11px;color:var(--ink-3);text-transform:uppercase;letter-spacing:.06em}
+  .m .row{display:flex;align-items:baseline;gap:var(--s2)}
+  .m .v{font-family:Oswald,sans-serif;font-size:25px;font-variant-numeric:tabular-nums}
+  .m.ok .v{color:var(--good)} .m.no .v{color:var(--bad)} .m .v{color:var(--ink-3)}
+  /* valor indisponível: um traço de 25px parecia campo quebrado */
+  .m .v.na{font-size:14px;color:var(--ink-3);opacity:.6;letter-spacing:.08em}
+  .m .tg{font-size:11.5px;color:var(--ink-3)}
+  .m .nt{font-size:11.5px;color:var(--ink-2);line-height:1.35}
+
+  .score{display:flex;gap:var(--s5);background:var(--surface);border:1px solid var(--line);padding:var(--s3) 18px;
+    font-variant-numeric:tabular-nums;flex-wrap:wrap}
+  .score div{display:flex;flex-direction:column}
+  .score .l{font-size:10.5px;color:var(--ink-3);text-transform:uppercase;letter-spacing:.05em}
+  .score .n{font-family:Oswald,sans-serif;font-size:17px}
+  footer{font-size:11.5px;color:var(--ink-3);border-top:1px solid var(--line);padding-top:var(--s4);line-height:1.6}
+
+  /* ---- console bruto ---- */
+  .tabs{display:flex;gap:1px;background:var(--line);border:1px solid var(--line);flex-wrap:wrap}
+  .tab{background:var(--surface);border:0;color:var(--ink-2);font-family:Oswald,sans-serif;
+    font-size:11.5px;letter-spacing:.07em;text-transform:uppercase;padding:9px var(--s4);cursor:pointer}
+  .tab:hover{color:var(--ink)}
+  .tab[aria-selected="true"]{background:var(--surface-2);color:var(--accent)}
+  .tab:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+  .console{background:#0b0e13;border:1px solid var(--line);border-top:0;max-height:330px;overflow:auto;
+    font-family:ui-monospace,"Cascadia Code",Consolas,monospace;font-size:12px;line-height:1.55}
+  .console table{width:100%;border-collapse:collapse}
+  .console td{padding:5px var(--s3);border-bottom:1px solid #161b23;vertical-align:top;white-space:pre-wrap;word-break:break-word}
+  .console tr:hover td{background:#131820}
+  .console .t{color:var(--accent);font-variant-numeric:tabular-nums;white-space:nowrap;width:52px}
+  .console .k{color:#7fb3d5;white-space:nowrap}
+  .console .v{color:var(--ink)}
+  .console .ev{color:#c9a0dc;white-space:nowrap;width:118px}
+  .console .dim{color:var(--ink-3)}
+  .console .team-order{color:var(--good)} .console .team-chaos{color:var(--bad)}
+  .empty{padding:var(--s6) var(--s5);text-align:center;color:var(--ink-3);font-family:Inter,sans-serif}
+  .hint{font-size:11.5px;color:var(--ink-3);margin-top:var(--s3);font-family:Inter,sans-serif;line-height:1.55;padding:0 var(--s4) var(--s3)}
+
+  /* ---- log de eventos ao vivo ----
+     Prefixo `evlog-` em TODAS as classes deste bloco de propósito: uma classe
+     curta (`.fl`) já colidiu neste arquivo e restilizou 14 elementos sem
+     ninguém notar. Nomes longos e prefixados não colidem. */
+  .evlog{background:#0b0e13;border:1px solid var(--line);border-top:0;
+    max-height:380px;overflow:auto;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px}
+  .evlog-linha{display:flex;align-items:baseline;gap:var(--s2);
+    padding:5px var(--s3);border-bottom:1px solid #161b23}
+  .evlog-linha:hover{background:#131820}
+  .evlog-acoes{display:flex;justify-content:flex-end;margin-top:var(--s2)}
+  .evlog-t{color:var(--accent);font-variant-numeric:tabular-nums;white-space:nowrap;width:48px;flex:0 0 auto}
+  .evlog-tag{font-size:10px;letter-spacing:.04em;text-transform:uppercase;
+    padding:1px 5px;border-radius:3px;white-space:nowrap;flex:0 0 auto;width:76px;text-align:center}
+  .evlog-tag.ev{background:#241c30;color:#c9a0dc}
+  .evlog-tag.tr{background:#14232b;color:#7fb3d5}
+  .evlog-tag.al{background:var(--accent-bg);color:var(--accent)}
+  .evlog-txt{color:var(--ink);flex:1 1 auto;word-break:break-word}
+  .evlog-criar{flex:0 0 auto;background:transparent;border:1px solid var(--line);
+    color:var(--ink-3);font:inherit;font-size:10.5px;padding:1px 6px;border-radius:3px;cursor:pointer}
+  .evlog-criar:hover{border-color:var(--accent);color:var(--accent)}
+  .evlog-criar:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  .evlog-nao{flex:0 0 auto;font-size:10.5px;color:#4a5666;padding:1px 6px;white-space:nowrap}
+  /* seletor de qual partida ver (a ao vivo ou uma gravada) + aviso de log
+     parcial. Mesmo prefixo `evlog-` do resto do bloco, pela mesma razão:
+     uma classe genérica aqui já repintou 14 elementos alheios uma vez. */
+  .evlog-barra{display:flex;align-items:center;gap:var(--s2);flex-wrap:wrap;
+    padding:var(--s2) 0}
+  .evlog-sel{background:#0b0e13;color:var(--ink);border:1px solid var(--line);
+    border-radius:4px;padding:3px 6px;font:inherit;font-size:11.5px;max-width:100%}
+  .evlog-sel:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+  .evlog-meta{font-size:11px;color:var(--ink-3)}
+  /* O aviso de "só eventos" é tarja, não rodapé: o log reconstruído tem ~37%
+     das linhas do ao vivo, e o usuário precisa saber ANTES de concluir que
+     alguma coisa não aconteceu na partida. */
+  .evlog-aviso{background:#2b2410;border:1px solid #6b5720;color:#e8c86a;
+    border-radius:4px;padding:var(--s2);font-size:11.5px;line-height:1.45}
+
+  /* ---- painéis colapsáveis (ferramenta, não conteúdo de partida) ---- */
+  details{border-top:1px solid var(--line);padding-top:10px}
+  details > summary{cursor:pointer;list-style:none;display:flex;align-items:center;gap:var(--s3);
+    font-family:Oswald,sans-serif;font-size:11.5px;letter-spacing:.14em;text-transform:uppercase;
+    color:var(--ink-3);padding:6px 0}
+  details > summary::-webkit-details-marker{display:none}
+  details > summary::before{content:"▸";font-size:11px;color:var(--ink-3);transition:transform .15s}
+  details[open] > summary::before{transform:rotate(90deg)}
+  details > summary:hover{color:var(--ink-2)}
+  details > summary:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+  details[open] > summary{color:var(--ink-2);margin-bottom:9px}
+  .sum-n{margin-left:auto;font-family:Inter,sans-serif;font-size:11px;letter-spacing:0;
+    text-transform:none;color:var(--ink-3)}
+  .sum-n.pend{color:var(--accent)}
+  @media (prefers-reduced-motion:reduce){details > summary::before{transition:none}}
+
+  /* ---- criar alerta (texto -> IA -> prévia -> gravar) ---- */
+  #painelAlertas #alertasDica{padding:0 0 var(--s2) 0;margin:0}
+  #painelAlertas .criar{display:flex;gap:var(--s2);align-items:flex-start;margin:var(--s3) 0}
+  #painelAlertas textarea{
+    flex:1;background:var(--surface-2);border:1px solid var(--line);border-radius:6px;
+    color:var(--ink);padding:var(--s2);font:inherit;resize:vertical;min-height:2.6em}
+  #painelAlertas textarea:focus{outline:none;border-color:var(--accent)}
+  #previaAlerta{background:var(--surface-2);border:1px solid var(--line);
+    border-radius:6px;padding:var(--s3);margin-bottom:var(--s3)}
+  .previa-linha{margin-bottom:var(--s2);line-height:1.5}
+  .previa-linha b{color:var(--accent)}
+  /* Nome de campo em monoespaçada: sinaliza que é caminho de JSON literal, e
+     não português — é a diferença entre "leio o nível" e `allPlayers[].level`. */
+  .previa-linha code{font-family:ui-monospace,Consolas,monospace;font-size:11.5px;
+    background:var(--surface);border:1px solid var(--line);border-radius:3px;
+    padding:0 4px;color:var(--accent);white-space:nowrap}
+  .previa-acoes{display:flex;gap:var(--s2);margin-top:var(--s3)}
+
+  /* ---- passo de gravação dentro da criação ---- */
+  /* Destacado com borda própria: é um PASSO, não mais um detalhe da prévia.
+     Enquanto ele não terminar não existe alerta nenhum. */
+  .gravacao-passo{border:1px dashed var(--accent);background:var(--accent-bg);
+    border-radius:6px;padding:var(--s3);margin-top:var(--s3)}
+  .gravacao-passo.pronta{border-style:solid;border-color:var(--good);background:var(--good-bg)}
+  .gp-t{margin-bottom:var(--s2)}
+  .gp-t b{color:var(--accent)}
+  .gravacao-passo.pronta .gp-t b{color:var(--good)}
+  .gp-ob{font-size:10px;letter-spacing:.04em;text-transform:uppercase;
+    background:var(--bad-bg);color:var(--bad);padding:1px 6px;margin-left:4px}
+  .gravacao-passo.pronta .gp-ob{background:var(--good-bg);color:var(--good)}
+  .gp-sug{color:var(--ink-3);font-size:12px;font-style:italic;margin-bottom:var(--s2)}
+  .gp-acoes{display:flex;gap:var(--s2);align-items:center;flex-wrap:wrap}
+  .gp-st{font-size:11.5px;color:var(--ink-3)}
+  #btnGravarAlerta.recording{background:var(--bad);border-color:var(--bad);color:#fff;
+    animation:pulse 1s infinite}
+  @media (prefers-reduced-motion:reduce){#btnGravarAlerta.recording{animation:none}}
+  /* Vermelho porque o caso mais comum de "não deu" é a IA RECUSAR um pedido
+     impossível — e isso precisa ser LIDO, não passar batido como texto cinza.
+     Recusa é o sistema funcionando; falha de rede é outra coisa e diz outra. */
+  .erro-alerta{background:var(--bad-bg);border:1px solid var(--bad);color:#ffb4b4;
+    border-radius:6px;padding:var(--s3);margin-bottom:var(--s3);line-height:1.5}
+  .erro-alerta b{color:var(--bad)}
+  .erro-alerta.rede{background:var(--accent-bg);border-color:var(--accent);color:var(--ink-2)}
+  .erro-alerta.rede b{color:var(--accent)}
+  .alerta-item{display:flex;align-items:center;gap:var(--s2);
+    padding:var(--s2) 0;border-top:1px solid var(--line)}
+  .alerta-item .an{flex:1;min-width:0}
+  .alerta-item .ped{color:var(--ink-3);font-size:12px;display:block}
+  #listaAlertas .vazio{color:var(--ink-3);font-size:12px;padding:var(--s2) 0}
+
+  /* ---- painel de draft (mesma tela; draft e partida nunca coexistem) ---- */
+  .teams{display:grid;grid-template-columns:1fr 1fr;gap:var(--s4)}
+  .team{background:var(--surface);border:1px solid var(--line)}
+  .team-h{padding:9px var(--s4);background:var(--surface-2);font-family:Oswald,sans-serif;
+    font-size:12px;letter-spacing:.08em;text-transform:uppercase;border-bottom:1px solid var(--line)}
+  .team.mine .team-h{color:var(--good)} .team.theirs .team-h{color:var(--bad)}
+  .slot{display:flex;align-items:center;gap:var(--s3);padding:9px var(--s4);border-bottom:1px solid var(--line)}
+  .slot:last-child{border-bottom:none}
+  .slot .pos{font-family:Oswald,sans-serif;font-size:10.5px;color:var(--ink-3);width:30px;flex:none;letter-spacing:.06em}
+  .slot .nm{font-weight:500}
+  .slot.me{background:var(--surface-2)}
+  .slot.me .nm{color:var(--accent)}
+  .slot .tag{margin-left:auto;font-size:10.5px;padding:1px 6px;font-weight:600;letter-spacing:.02em}
+  .tag.bad{background:var(--bad-bg);color:var(--bad)}
+  .tag.good{background:var(--good-bg);color:var(--good)}
+
+  .comp{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:10px}
+  .c{background:var(--surface);border:1px solid var(--line);border-left:3px solid var(--ink-3);padding:10px 12px}
+  .c.good{border-left-color:var(--good)} .c.bad{border-left-color:var(--bad)}
+  .c .lab{font-size:11px;color:var(--ink-3);text-transform:uppercase;letter-spacing:.06em}
+  .c .det{font-weight:500;margin:2px 0 3px;font-size:13.5px}
+  .c .w{font-family:Oswald,sans-serif;font-size:13px;font-variant-numeric:tabular-nums}
+  .c.good .w{color:var(--good)} .c.bad .w{color:var(--bad)} .c .w{color:var(--ink-3)}
+
+  .trig{display:flex;flex-direction:column;gap:6px}
+  .t{display:flex;align-items:center;gap:11px;background:var(--surface);
+    border:1px solid var(--line);border-left:3px solid var(--bad);padding:8px 12px}
+  .t.pos{border-left-color:var(--good)}
+  .t .wr{font-family:Oswald,sans-serif;font-size:19px;font-variant-numeric:tabular-nums;width:54px;flex:none;color:var(--bad)}
+  .t.pos .wr{color:var(--good)}
+  .t .who{font-weight:600;width:96px;flex:none}
+  .t .nt{color:var(--ink-2);font-size:12.5px}
+  .t .n{margin-left:auto;color:var(--ink-3);font-size:11px;font-variant-numeric:tabular-nums;flex:none}
+
+  .plans{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .p{background:var(--surface);border:1px solid var(--line);padding:13px 15px}
+  .p.main{border-color:var(--accent);border-width:2px}
+  .p .when{font-family:Oswald,sans-serif;font-size:11px;letter-spacing:.09em;
+    text-transform:uppercase;color:var(--accent);margin-bottom:3px}
+  .p .ttl{font-size:16px;font-weight:600;margin-bottom:7px;line-height:1.25}
+  .p ul{margin:0;padding-left:16px;display:flex;flex-direction:column;gap:4px;
+    color:var(--ink-2);font-size:12.5px}
+  .alts{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px}
+  .alt{background:var(--surface);border:1px solid var(--line);padding:11px 13px;opacity:.82}
+  .alt .when{font-size:10.5px;color:var(--ink-3)}
+  .alt .ttl{font-size:13.5px;margin-bottom:5px}
+  .alt ul{font-size:12px}
+
+  /* ---- pool ---- */
+  .pool{background:var(--surface);border:1px solid var(--line);border-left:4px solid var(--good);padding:13px 16px}
+  .pool.consider{border-left-color:var(--accent)}
+  .pool .verd{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:4px}
+  .pool .vb{font-family:Oswald,sans-serif;font-size:15px;letter-spacing:.05em;text-transform:uppercase;color:var(--good)}
+  .pool.consider .vb{color:var(--accent)}
+  .pool .sc{font-size:12px;color:var(--ink-3)}
+  .pool .rz{font-size:13px;color:var(--ink-2);line-height:1.45}
+  .pool .cands{display:flex;flex-wrap:wrap;gap:8px;margin-top:9px}
+  .cand{background:var(--surface-2);border:1px solid var(--line);padding:6px 11px;font-size:12.5px;
+    display:flex;align-items:baseline;gap:7px}
+  .cand.weak{opacity:.62;border-style:dashed}
+  .cand b{font-family:Oswald,sans-serif;font-size:15px;font-variant-numeric:tabular-nums}
+  .cand .nn{font-size:11px;color:var(--ink-3)}
+  .cand .warn{font-size:10.5px;color:var(--bad);text-transform:uppercase;letter-spacing:.04em}
+
+  /* ---- loja ---- */
+  .shop{display:grid;grid-template-columns:repeat(auto-fit,minmax(324px,1fr));gap:var(--s3)}
+  .buy{background:var(--surface);border:1px solid var(--line);border-left:4px solid var(--accent);
+    padding:var(--s3) var(--s4) 14px;display:grid;gap:7px}
+  .buy.p1{border-left-color:var(--bad);background:var(--bad-bg)}
+  .buy .hd{display:flex;align-items:baseline;gap:var(--s3);flex-wrap:wrap;row-gap:5px}
+  .buy .it{font-family:Oswald,sans-serif;font-size:16px;letter-spacing:.03em}
+  .buy .g{font-family:Oswald,sans-serif;font-size:13px;color:var(--accent);font-variant-numeric:tabular-nums}
+  .buy .tr{font-size:11.5px;color:var(--ink-3);margin-left:auto}
+  .buy .wy{font-size:12.5px;color:var(--ink-2);line-height:1.5}
+  .buy .kd{font-size:10px;text-transform:uppercase;letter-spacing:.05em;padding:1px 6px;
+    background:var(--surface-2);color:var(--ink-3)}
+  /* Item que o SEU histórico reprova e que já está na build: não é uma compra,
+     é um aviso — some do fluxo de "comprar" com traço tracejado e sem preço. */
+  .buy.ev{border-left-color:var(--ink-3);background:var(--surface-2);border-style:dashed}
+  /* O efeito medido em destaque próprio: é a única coisa que separa este
+     conselho de um palpite, então não pode ficar escondido no meio do texto. */
+  .buy .ef{display:flex;align-items:baseline;gap:7px}
+  .buy .efv{font-family:Oswald,sans-serif;font-size:19px;font-variant-numeric:tabular-nums;
+    letter-spacing:.02em}
+  .buy .efv.pos{color:var(--good)}
+  .buy .efv.neg{color:var(--bad)}
+  .buy .efn{font-size:11px;color:var(--ink-3)}
+  /* As premissas que geraram as dicas. Ficam ACIMA dos cartões porque uma
+     recomendação sem a leitura que a produziu não dá pra contestar — e o
+     projeto inteiro é construído pra você poder discordar do número. */
+  .ctxbar{display:flex;flex-wrap:wrap;gap:var(--s3);margin-bottom:var(--s3);
+    padding:6px var(--s3);background:var(--surface-2);border:1px solid var(--line)}
+  .ctxi{display:flex;align-items:baseline;gap:5px}
+  .ctxi .ck{font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-3)}
+  .ctxi .cv{font-size:12px;color:var(--ink);font-variant-numeric:tabular-nums}
+  /* Matchups do draft: uma linha por jogador, colunas alinhadas pra varredura
+     vertical rápida — no draft se lê em segundos, não se estuda. */
+  .mu{display:grid;gap:3px}
+  .mu-base{font-family:Inter,sans-serif;font-size:11px;font-weight:400;color:var(--ink-3);
+    text-transform:none;letter-spacing:0;margin-left:var(--s3)}
+  .mrow2{display:grid;grid-template-columns:64px 1fr 54px 48px 44px auto;align-items:center;
+    gap:var(--s3);background:var(--surface);border:1px solid var(--line);padding:5px var(--s3);font-size:12.5px}
+  /* Fraco = menos de 15 jogos. Continua legível, mas não compete com o que tem
+     amostra: é a diferença entre "sei" e "achei". */
+  .mrow2.fraco{opacity:.55}
+  .mrow2.na{opacity:.4}
+  .mrow2 .lado{font-size:9.5px;text-transform:uppercase;letter-spacing:.05em;padding:1px 5px;text-align:center}
+  .mrow2 .lado.al{background:var(--good-bg);color:var(--good)}
+  .mrow2 .lado.in{background:var(--surface-2);color:var(--ink-3)}
+  .mrow2 .wr{font-family:Oswald,sans-serif;font-size:15px;font-variant-numeric:tabular-nums;text-align:right}
+  .mrow2 .dl{font-size:12px;font-variant-numeric:tabular-nums;text-align:right}
+  .mrow2 .wr.pos,.mrow2 .dl.pos{color:var(--good)}
+  .mrow2 .wr.neg,.mrow2 .dl.neg{color:var(--bad)}
+  .mrow2 .nn{font-size:11px;color:var(--ink-3);text-align:right;font-variant-numeric:tabular-nums}
+  .mrow2 .ic{font-size:10.5px;color:var(--ink-3);font-variant-numeric:tabular-nums}
+  .mrow2 .sem{font-size:11px;color:var(--ink-3);grid-column:3/-1}
+  .mu-nota{font-size:11.5px;color:var(--ink-3);line-height:1.55;margin-top:var(--s3)}
+  @media(max-width:700px){
+    .mrow2{grid-template-columns:56px 1fr 50px 44px;row-gap:2px}
+    .mrow2 .ic{display:none}
+  }
+  .build{display:flex;gap:var(--s5);flex-wrap:wrap;background:var(--surface);border:1px solid var(--line);
+    padding:var(--s3) 18px;font-size:12.5px;align-items:baseline;row-gap:var(--s2);margin-top:var(--s3)}
+  .build .l{font-size:10.5px;color:var(--ink-3);text-transform:uppercase;letter-spacing:.05em}
+  .build .next{color:var(--accent);font-family:Oswald,sans-serif;font-size:14px}
+  .build .gold{font-family:Oswald,sans-serif;font-size:14px;color:var(--accent);font-variant-numeric:tabular-nums}
+
+  /* ---- som ---- */
+  .audiobar{display:flex;align-items:center;gap:var(--s3);flex-wrap:wrap;background:var(--surface);
+    border:1px solid var(--line);padding:var(--s3) var(--s4);row-gap:var(--s2)}
+  .btn{background:var(--surface-2);border:1px solid var(--line);color:var(--ink);cursor:pointer;
+    font-family:Oswald,sans-serif;font-size:12px;letter-spacing:.06em;text-transform:uppercase;padding:8px var(--s4)}
+  .btn:hover{border-color:var(--accent);color:var(--accent)}
+  .btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  .btn.on{background:var(--good-bg);border-color:var(--good);color:var(--good)}
+  .btn.off{background:var(--bad-bg);border-color:var(--bad);color:var(--bad)}
+  .vol{display:flex;align-items:center;gap:var(--s2);font-size:12px;color:var(--ink-2)}
+  .vol input{width:110px;accent-color:var(--accent)}
+  /* Controle desligado tem que PARECER desligado: som e volume agora são do
+     servidor, e botão que parece vivo sem estar foi o bug que originou tudo. */
+  .btn:disabled,.vol input:disabled{opacity:.42;cursor:not-allowed}
+  #painelLuzes .luz-status{padding:var(--s2) var(--s4);font-size:12.5px;color:var(--ink-2)}
+  #painelLuzes .luz-grupo{padding:var(--s2) var(--s4)}
+  #painelLuzes .luz-grupo h3{font-family:Oswald,sans-serif;font-size:12px;letter-spacing:.06em;
+    text-transform:uppercase;color:var(--ink-3);margin:0 0 var(--s2) 0;font-weight:500}
+  #painelLuzes .luz-botoes{display:flex;flex-wrap:wrap;gap:var(--s2)}
+  .vol:has(input:disabled){opacity:.42}
+  .snd-status{font-size:11.5px;color:var(--ink-3);margin-left:auto}
+
+  .sounds{display:grid;grid-template-columns:repeat(auto-fit,minmax(430px,1fr));gap:var(--s3);padding:var(--s2) var(--s4) 0}
+  .snd{background:var(--surface);border:1px solid var(--line);padding:var(--s3) var(--s4);display:flex;
+    align-items:center;gap:var(--s3)}
+  /* Sem TTS, um alerta sem gravacao fica MUDO em jogo. Por isso a linha
+     faltando e destacada, nao esmaecida: antes o opacity:.75 escondia
+     justamente o que precisa de atencao. */
+  .snd.missing{border-style:dashed;border-color:var(--bad);background:var(--bad-bg)}
+  /* flex:1 sozinho não deixa o texto encolher; sem o min-width:0 os nomes longos
+     estouram e os botões espremem a coluna de texto */
+  .snd .info{flex:1 1 auto;min-width:0;display:flex;flex-direction:column;gap:3px}
+  .snd .nm{font-weight:600;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .snd .fl{font-family:ui-monospace,Consolas,monospace;font-size:11px;color:var(--accent);
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .snd .sg{font-size:11.5px;color:var(--ink-3);font-style:italic;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  /* Soltar arquivo: a linha inteira vira alvo. Nao ha quadrado permanente
+     ocupando espaco -- a borda tracejada so aparece com o arquivo em cima,
+     que e quando a informacao importa. */
+  .snd.drop{border-style:dashed;border-color:var(--accent);background:var(--accent-bg, rgba(120,170,255,.08))}
+  .snd.drop::after{content:'soltar áudio aqui';position:absolute;inset:0;display:grid;place-items:center;
+    font-size:12px;font-weight:600;color:var(--accent);background:var(--surface);opacity:.92;pointer-events:none}
+  .snd{position:relative}
+  .snd .arq{background:none;border:1px solid var(--line);color:var(--ink-2);cursor:pointer;
+    width:30px;height:30px;flex:none;font-size:12px}
+  .snd .arq:hover{border-color:var(--accent);color:var(--accent)}
+  /* Painel de TTS: escondido ate o usuario clicar no botao de teclado.
+     Fica DENTRO da linha do som, entao a linha vira coluna quando abre. */
+  .snd{flex-wrap:wrap}
+  .tts{flex:1 0 100%;display:none;gap:var(--s2);margin-top:var(--s3);
+    padding-top:var(--s3);border-top:1px dashed var(--line);flex-direction:column}
+  .snd.tts-open .tts{display:flex}
+  .tts textarea{width:100%;background:var(--bg);color:var(--ink);border:1px solid var(--line);
+    padding:8px;font:inherit;font-size:12.5px;resize:vertical;min-height:48px}
+  .tts textarea:focus{outline:none;border-color:var(--accent)}
+  .tts .cfg{display:flex;flex-wrap:wrap;gap:var(--s3);align-items:center;font-size:11.5px;color:var(--ink-2)}
+  .tts .cfg label{display:flex;align-items:center;gap:5px}
+  .tts select{background:var(--bg);color:var(--ink);border:1px solid var(--line);padding:4px;font:inherit;font-size:11.5px;max-width:260px}
+  .tts input[type=range]{width:96px}
+  .tts .acoes{display:flex;gap:var(--s2);align-items:center}
+  .tts .gerar{background:var(--accent);color:var(--bg);border:none;padding:6px 14px;cursor:pointer;font:inherit;font-size:12px;font-weight:600}
+  .tts .gerar:disabled{opacity:.5;cursor:default}
+  .tts .st{font-size:11.5px;color:var(--ink-3)}
+  .tts .st.erro{color:var(--bad)}
+  .tts .st.ok{color:var(--good)}
+  .snd .tts-btn{background:none;border:1px solid var(--line);color:var(--ink-2);cursor:pointer;
+    width:30px;height:30px;flex:none;font-size:12px}
+  .snd .tts-btn:hover{border-color:var(--accent);color:var(--accent)}
+  .snd.tts-open .tts-btn{border-color:var(--accent);color:var(--accent)}
+  .snd .play{background:none;border:1px solid var(--line);color:var(--ink-2);cursor:pointer;
+    width:30px;height:30px;flex:none;font-size:13px}
+  .snd .play:hover{border-color:var(--accent);color:var(--accent)}
+  .snd .play:disabled{opacity:.3;cursor:default}
+  .snd .rec{background:none;border:1px solid var(--line);color:var(--ink-2);cursor:pointer;
+    width:30px;height:30px;flex:none;font-size:11px;display:grid;place-items:center}
+  .snd .rec:hover{border-color:var(--bad);color:var(--bad)}
+  .snd .rec.recording{background:var(--bad);border-color:var(--bad);color:#fff;animation:pulse 1s infinite}
+  .snd .del{background:none;border:1px solid var(--line);color:var(--ink-3);cursor:pointer;
+    width:30px;height:30px;flex:none;font-size:13px}
+  .snd .del:hover{border-color:var(--bad);color:var(--bad)}
+  .snd .del:disabled{opacity:.25;cursor:default}
+  @keyframes pulse{50%{opacity:.55}}
+  @media (prefers-reduced-motion:reduce){.snd .rec.recording{animation:none}}
+  .rec-dot{width:9px;height:9px;border-radius:50%;background:var(--bad);display:inline-block}
+  .snd.rec-active{border-color:var(--bad)}
+  .sndwarn{background:var(--bad-bg);border-left:3px solid var(--bad);color:var(--ink-2);
+    font-size:12.5px;line-height:1.5;padding:var(--s3) var(--s4);margin-bottom:var(--s3)}
+  .sndwarn b{color:var(--bad)}
+  .badge{font-size:10px;padding:1px 6px;letter-spacing:.04em;text-transform:uppercase;flex:none}
+  .badge.ok{background:var(--good-bg);color:var(--good)}
+  .badge.no{background:var(--bad-bg);color:var(--bad)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>In-Game Coach</h1>
+    <span class="phase" id="phase">—</span>
+    <span class="clock" id="clock">--:--</span>
+  </header>
+  <div class="audiobar">
+    <button class="btn" id="sndToggle">Som: ligado</button>
+    <label class="vol">Volume <input type="range" id="vol" min="0" max="100" value="70"></label>
+    <button class="btn" id="testAll"
+      title="Toca cada alerta pelo servidor, na ordem">Testar todos</button>
+    <span class="snd-status" id="sndStatus">—</span>
+  </div>
+
+  <!-- (removido) aqui ficava o painel de narração ao vivo, com as frases
+       escritas por modelo. Saiu junto com a narração e o TTS. -->
+  <!-- Espelho da voz do servidor: qual gravação o Node acabou de tocar. Sem
+       isso a pagina ficaria muda E cega — nao daria pra saber se a voz esta
+       de pe. -->
+  <div id="voz" class="muted"></div>
+
+  <div id="draftPane" hidden></div>
+  <div id="app"></div>
+
+  <!-- A IA só entra AQUI, na criação. Em partida não há rede nem modelo:
+       roda a regra compilada e toca a gravação do usuário. -->
+  <details id="painelAlertas">
+    <summary><span>Criar alerta</span><span class="sum-n" id="alertasResumo"></span></summary>
+
+    <p class="hint" id="alertasDica">
+      Escreva o aviso que você quer. A IA monta a regra e diz que dados vai ler;
+      você grava a voz ali mesmo — sem gravação o alerta não é criado.
+      <br>Durante a partida não há IA nem internet — roda só a regra e a sua gravação.
+    </p>
+
+    <div class="criar">
+      <textarea id="pedidoAlerta" rows="2"
+        placeholder="me avise quando 2 ou mais inimigos estiverem mortos"></textarea>
+      <button class="btn" id="btnCriarAlerta">Criar</button>
+    </div>
+
+    <!-- A prévia é o ponto desta tela: ler JSON não é conferência. É aqui que
+         o usuário percebe que pediu uma coisa e saiu outra. -->
+    <div id="previaAlerta" hidden>
+      <div class="previa-linha"><b>Entendi assim:</b> <span id="previaRegra"></span></div>
+      <!-- Os campos vêm do servidor, montados em código a partir do tipo de
+           gatilho. Não é o modelo falando: é o que o coach realmente lê. -->
+      <div class="previa-linha" id="previaFontes" hidden></div>
+      <div class="previa-linha" id="previaConfirmo" hidden></div>
+      <div class="previa-linha" id="previaBacktest"></div>
+
+      <!-- Gravar faz parte de CRIAR. Alerta sem voz fica mudo em partida (não
+           há TTS), e antes disso ficava mudo por tempo indeterminado porque
+           gravar era outra tela. Agora a regra só é salva depois da voz. -->
+      <div class="gravacao-passo">
+        <div class="gp-t"><b>Agora grave o aviso com a sua voz</b> <span class="gp-ob">obrigatório</span></div>
+        <div class="gp-sug">fale algo como: “<span id="previaSugestao"></span>”</div>
+        <div class="gp-acoes">
+          <button class="btn" id="btnGravarAlerta">● Gravar</button>
+          <button class="btn" id="btnOuvirAlerta" hidden>▶ Ouvir</button>
+          <span class="gp-st" id="gravacaoStatus">nada gravado ainda</span>
+        </div>
+      </div>
+
+      <div class="previa-acoes">
+        <button class="btn" id="btnAceitarAlerta" disabled>Criar alerta</button>
+        <button class="btn" id="btnDescartarAlerta">Descartar</button>
+      </div>
+    </div>
+
+    <div id="erroAlerta" class="erro-alerta" hidden></div>
+    <div id="listaAlertas"></div>
+  </details>
+
+  <details id="sndPanel">
+    <summary><span class="sum-t">Áudios dos alertas</span><span class="sum-n" id="sumN"></span></summary>
+    <!-- Consequência direta de tirar o TTS: alerta sem gravação não emite som.
+         O aviso só aparece quando há o que gravar. -->
+    <div class="sndwarn" id="sndWarn" hidden></div>
+    <div class="sounds" id="sounds"></div>
+    <div class="hint">Clique em <b>●</b> para gravar pelo microfone e <b>■</b> para parar — salva sozinho. Ou copie um arquivo para a pasta <code>sounds/</code> com o nome-base (qualquer extensão serve). Grave curto: 1 a 2 segundos.</div>
+  </details>
+
+  <!-- Testes das luzes RGB. Estático (fora do #app) porque o #app é
+       reescrito a cada segundo e os botões perderiam o clique no meio. -->
+  <details id="painelLuzes">
+    <summary><span class="sum-t">Luzes</span><span class="sum-n" id="luzResumo"></span></summary>
+    <div class="luz-status" id="luzStatus">—</div>
+    <div class="luz-grupo"><h3>Kills</h3><div class="luz-botoes">
+      <button class="btn" data-efeito="kill" data-campeao="Ahri">Kill</button>
+      <button class="btn" data-efeito="multikill" data-n="2">Double</button>
+      <button class="btn" data-efeito="multikill" data-n="3">Triple</button>
+      <button class="btn" data-efeito="multikill" data-n="4">Quadra</button>
+      <button class="btn" data-efeito="multikill" data-n="5">Penta</button>
+      <button class="btn" data-efeito="assist">Assist</button>
+      <button class="btn" data-efeito="firstblood">First blood</button>
+      <button class="btn" data-efeito="shutdown">Shutdown</button>
+      <button class="btn" data-efeito="ace">Ace</button>
+    </div></div>
+    <div class="luz-grupo"><h3>Objetivos</h3><div class="luz-botoes">
+      <button class="btn" data-efeito="dragao" data-tipo="Fire">Infernal</button>
+      <button class="btn" data-efeito="dragao" data-tipo="Water">Oceano</button>
+      <button class="btn" data-efeito="dragao" data-tipo="Earth">Montanha</button>
+      <button class="btn" data-efeito="dragao" data-tipo="Air">Nuvem</button>
+      <button class="btn" data-efeito="dragao" data-tipo="Hextech">Hextec</button>
+      <button class="btn" data-efeito="dragao" data-tipo="Chemtech">Quimtec</button>
+      <button class="btn" data-efeito="dragao" data-tipo="Elder">Ancião</button>
+      <button class="btn" data-efeito="barao">Barão</button>
+      <button class="btn" data-efeito="arauto">Arauto</button>
+      <button class="btn" data-efeito="vastilarvas">Vastilarvas</button>
+    </div></div>
+    <div class="luz-grupo"><h3>Draft</h3><div class="luz-botoes">
+      <button class="btn" data-efeito="campeao" data-nome="Ahri" data-lado="eu">Meu pick</button>
+      <button class="btn" data-efeito="campeao" data-nome="Miss Fortune" data-lado="aliado">Pick aliado</button>
+      <button class="btn" data-efeito="campeao" data-nome="Zed" data-lado="inimigo">Pick inimigo</button>
+      <button class="btn" id="luzDraft">Simular draft</button>
+    </div></div>
+    <div class="luz-grupo"><h3>Partida</h3><div class="luz-botoes">
+      <button class="btn" data-efeito="morte" data-segundos="10">Morte 10 s</button>
+      <button class="btn" data-efeito="morte" data-segundos="30">Morte 30 s</button>
+      <button class="btn" data-efeito="loading" data-segundos="20">Loading 20 s</button>
+      <button class="btn" data-efeito="vitoria">Vitória</button>
+      <button class="btn" data-efeito="derrota">Derrota</button>
+      <button class="btn" data-efeito="agua">Beber água</button>
+    </div></div>
+    <div class="luz-grupo"><div class="luz-botoes">
+      <button class="btn" id="luzSequencia">Simular sequência</button>
+      <button class="btn" id="luzReset">Resetar para branco</button>
+    </div></div>
+    <div class="hint">Os botões usam o mesmo caminho da partida real (coach → daemon → OpenRGB).
+      A sequência simula kill → double → morte 8 s → triple → quadra → penta, para conferir as interrupções.</div>
+  </details>
+
+  <footer>
+    A API do jogo expõe só o seu placar e eventos globais — sem posição no mapa, ouro do time ou wards.
+    Os avisos usam só o que a API dá de verdade: timers contados a partir do evento real, níveis, itens e mortes.
+  </footer>
+</div>
+
+<script>
+const app=document.getElementById('app'), clock=document.getElementById('clock'), phaseEl=document.getElementById('phase');
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+// ---------- ícones do Data Dragon ----------
+//
+// A versão chega junto do /state (o servidor a busca uma vez a cada 6h, fora
+// do poll). Até a primeira resposta chegar, DD_VER fica vazia e os helpers
+// devolvem só o nome — a tela nunca espera imagem pra ter conteúdo.
+let DD_VER = '';
+
+// FALHAR SEM ESTRAGAR O LAYOUT.
+//
+// Campeão novo sai a cada poucos meses e a versão cacheada pode estar velha,
+// então ícone 403 não é exceção: é rotina. `this.remove()` tira só o <img> e
+// deixa o nome, que já está no DOM ao lado — o usuário lê "Kai'Sa" com ou sem
+// retrato. Alternativas piores consideradas: um placeholder cinza (ocupa
+// espaço por nada) e esconder via CSS (mantém o alt quebrado ocupando caixa).
+//
+// `onerror` inline, e não addEventListener, porque estes HTML são montados por
+// template string e inseridos com innerHTML: não há nó para prender o ouvinte
+// antes do navegador já ter tentado carregar.
+const ERR_ICONE = "this.remove()";
+
+// POR QUE ESTES ÍCONES NÃO SÃO loading="lazy" (e a lista de partidas é).
+//
+// Medido no navegador, não suposto: com lazy, NENHUM ícone deste painel
+// carregava — nem os que estavam na dobra. O painel ao vivo redesenha por
+// innerHTML a cada segundo, e o carregador preguiçoso do Chrome é assíncrono:
+// ele agenda a busca e, antes de chegar a vez, o <img> já foi destruído pelo
+// redesenho seguinte. O ciclo se repetia pra sempre — 9 imagens, 0 carregadas,
+// e nem o onerror disparava, porque busca nenhuma chegou a falhar.
+//
+// Como as imagens do CDN ficam no cache do navegador depois da primeira vez,
+// carregar ansiosamente aqui custa uma busca por ícone na vida da página, não
+// uma por segundo. A lista de partidas (.mrow, em outro trecho) CONTINUA lazy:
+// ela não redesenha em laço e pode ter dezenas de linhas fora da tela, que é o
+// caso pra que lazy foi feito.
+
+/** <img> do retrato do campeão. `chave` já vem convertida pelo servidor. */
+function iconeCampeao(chave, nome, grande){
+  if (!DD_VER || !chave) return '';
+  const url = 'https://ddragon.leagueoflegends.com/cdn/'+DD_VER+'/img/champion/'+encodeURIComponent(chave)+'.png';
+  // alt="" de propósito: o nome do campeão já está no texto ao lado, e repetir
+  // faria o leitor de tela falar duas vezes.
+  return '<img class="dd-c'+(grande?' big':'')+'" src="'+esc(url)+'" alt="" title="'+esc(nome||'')+'" onerror="'+ERR_ICONE+'">';
+}
+
+/** Campeão com o retrato ANTES do nome. O nome sempre sai, com ou sem ícone. */
+function campeaoComIcone(chave, nome, grande){
+  return '<span class="dd-n">'+iconeCampeao(chave, nome, grande)+'<span>'+esc(nome||'')+'</span></span>';
+}
+
+/** <img> do ícone do item, pelo ID. Sem ID não há ícone — ver nota abaixo. */
+function iconeItem(id, nome, grande){
+  const n = Number(id);
+  if (!DD_VER || !Number.isFinite(n) || n <= 0) return '';
+  const url = 'https://ddragon.leagueoflegends.com/cdn/'+DD_VER+'/img/item/'+n+'.png';
+  return '<img class="dd-i'+(grande?' big':'')+'" src="'+esc(url)+'" alt="" title="'+esc(nome||'')+'" onerror="'+ERR_ICONE+'">';
+}
+
+/**
+ * Item com ícone antes do nome.
+ *
+ * QUANDO SÓ HÁ O NOME E NENHUM ID, sai o nome sozinho — de propósito. O Data
+ * Dragon não indexa item por nome, e os nomes que temos vêm traduzidos
+ * ("Oposição Celestial"); casar por texto acertaria às vezes e poria o ícone
+ * ERRADO no resto, que é pior que não ter ícone.
+ */
+function itemComIcone(id, nome, grande){
+  const ic = iconeItem(id, nome, grande);
+  return ic ? '<span class="dd-n">'+ic+'<span>'+esc(nome||'')+'</span></span>' : esc(nome||'');
+}
+
+// ---------- campeão citado DENTRO de uma frase ----------
+//
+// O alerta e o log são frases prontas em português ("Zed chegou ao nível 6 —
+// ultimate disponível"). O campeão está no meio do texto, sem campo próprio, e
+// NÃO VOU quebrar a frase em partes só pra ilustrar: o valor dessas linhas é
+// serem lidas de relance, e o usuário precisa do NOME acima de tudo. Então o
+// ícone entra ANTES da frase, como marcador, e o texto fica intacto.
+//
+// Quem pode aparecer é sabido sem adivinhação: são os 10 campeões DESTA
+// partida, que já chegam em s.raw.players com a chave convertida. Procurar só
+// entre eles evita tanto casar palavra comum com nome de campeão quanto
+// precisar da lista dos 173 no navegador.
+let DD_ELENCO = [];   // [{nome, chave}] dos 10 da partida, maior nome primeiro
+
+function elencoDaPartida(s){
+  const ps = (s && s.raw && s.raw.players) || [];
+  // Ordenar por nome DECRESCENTE em tamanho faz "Nunu & Willump" ser testado
+  // antes de "Nunu", senão o prefixo casaria primeiro e mostraria o ícone
+  // certo pelo motivo errado (e erraria se um dia os dois estivessem no jogo).
+  DD_ELENCO = ps
+    .filter(p => p && p.champ && p.champKey)
+    .map(p => ({ nome: String(p.champ), chave: String(p.champKey) }))
+    .sort((a, b) => b.nome.length - a.nome.length);
+}
+
+/** Primeiro campeão da partida citado no texto, ou null. Só leitura. */
+function campeaoCitado(texto){
+  const t = String(texto || '');
+  for (const c of DD_ELENCO) if (t.includes(c.nome)) return c;
+  return null;
+}
+
+/** Ícone-marcador pro campeão citado numa frase. Vazio quando não há citação. */
+function marcadorCampeao(texto){
+  const c = campeaoCitado(texto);
+  return c ? iconeCampeao(c.chave, c.nome) : '';
+}
+const mmss=s=>`${Math.floor(s/60)}:${String(Math.floor(s%60)).padStart(2,'0')}`;
+
+function render(s){
+  lastState = s;
+  if(!s.active){
+    clock.textContent='--:--';
+    phaseEl.textContent = '—';
+    phaseEl.className='phase';
+    // O log continua na tela depois da partida: é sem a pressão do jogo que
+    // dá pra reler o que a API expôs e decidir o que virar alerta.
+    app.innerHTML = `<div class="idle"><div class="big">Aguardando a partida</div>
+      <div class="small">Abre sozinho quando o jogo começar. Deixe esta aba num segundo monitor.</div></div>`
+      + painelDoLog(s);
+    return;
+  }
+  clock.innerHTML=`<b>${mmss(s.gameTime)}</b>`;
+  phaseEl.textContent = 'ao vivo';
+  phaseEl.className = 'phase p15';
+
+  const o=s.nextObjective;
+  // `up` = já nasceu e ninguém pegou. Contagem regressiva não se aplica:
+  // o número vira "há quanto tempo está de pé".
+  const hot = o && (o.up || o.inSec<=45);
+  app.innerHTML=`
+    ${(s.objectives && s.objectives.length ? s.objectives : (o?[o]:[])).map(ob => {
+      // some em menos de 90s = mais urgente que qualquer contagem
+      const sobra = ob.expiresAt !== undefined && ob.expiresAt !== null
+        ? Math.round(ob.expiresAt - s.gameTime) : null;
+      const expirando = sobra !== null && sobra <= 90 && sobra > 0;
+      const quente = expirando || ob.up || ob.inSec <= 45;
+      return `<div class="obj ${quente?'hot':''}">
+      <div>
+        <div class="nm">${esc(ob.name)}${ob.up?' <span class="up">no mapa</span>':''}</div>
+        <div class="hint">${ob.up
+          ? (expirando
+              ? `Some em ${sobra}s — pegue agora ou perde`
+              : 'Está de pé e ninguém pegou — janela aberta')
+          : (ob.inSec<=45?'Esteja no rio AGORA — visão posta antes de nascer':'Chegue 30-45s antes, com visão')}</div>
+      </div>
+      <div class="in">${ob.up?'+'+mmss(ob.inSec):mmss(ob.inSec)}</div>
+    </div>`;}).join('')}
+
+    ${s.alerts.length?`<div class="alerts">${s.alerts.map(a=>
+      `<div class="al ${a.level}">${marcadorCampeao(a.text)}${esc(a.text)}</div>`).join('')}</div>`:''}
+
+    <div class="score">
+      <div><span class="l">Campeão</span><span class="n">${campeaoComIcone(s.me.champKey, s.me.champ, true)}</span></div>
+      <div><span class="l">KDA</span><span class="n">${s.me.k}/${s.me.d}/${s.me.a}</span></div>
+      <div><span class="l">CS</span><span class="n">${s.me.cs}</span></div>
+      <div><span class="l">Visão</span><span class="n">${s.me.ward}</span></div>
+    </div>
+
+
+    ${painelDoLog(s)}
+
+    <details id="conPanel" ${consoleOpen ? 'open' : ''}>
+      <summary><span class="sum-t">Console da API</span><span class="sum-n">${s.raw.events.length} eventos · ${s.raw.fields.length} campos</span></summary>
+      <div class="tabs" role="tablist">
+        ${TABS.map(t => `<button class="tab" role="tab" data-tab="${t.id}"
+          aria-selected="${t.id === activeTab}">${t.label}</button>`).join('')}
+      </div>
+      <div class="console" id="console">${renderTab(s, activeTab)}</div>
+      <div class="hint">Tudo que o jogo expõe ao vivo. Se algo aqui virar um indicador útil, dá pra transformar em alerta.</div>
+    </details>`;
+
+  // o painel é reconstruído a cada segundo; devolve o scroll e o aberto/fechado
+  const con = document.getElementById('console');
+  if (con) con.scrollTop = savedScroll;
+  con?.addEventListener('scroll', () => { savedScroll = con.scrollTop; });
+  document.getElementById('conPanel')?.addEventListener('toggle', e => {
+    consoleOpen = e.target.open;
+    localStorage.setItem('dc.console', consoleOpen ? '1' : '0');
+  });
+
+  // Mesmo tratamento pro log: ele é reescrito a cada segundo e, sem devolver o
+  // scroll, ler uma linha antiga durante a partida seria impossível — a lista
+  // saltaria pro topo a cada poll.
+  const lg = document.getElementById('evlog');
+  if (lg) lg.scrollTop = logScroll;
+  lg?.addEventListener('scroll', () => { logScroll = lg.scrollTop; });
+  document.getElementById('logPanel')?.addEventListener('toggle', e => {
+    logOpen = e.target.open;
+    localStorage.setItem('dc.log', logOpen ? '1' : '0');
+  });
+  // Um handler no container, não um por linha: com até 300 linhas reescritas a
+  // cada segundo, 300 listeners novos por poll é desperdício puro.
+  lg?.addEventListener('click', e => {
+    const b = e.target.closest('.evlog-criar');
+    if (!b) return;
+    prefillAlerta(b.dataset.pedido || '');
+  });
+
+
+  document.querySelectorAll('.tab').forEach(b => b.addEventListener('click', () => {
+    activeTab = b.dataset.tab;
+    savedScroll = 0;
+    document.querySelectorAll('.tab').forEach(x => x.setAttribute('aria-selected', String(x.dataset.tab === activeTab)));
+    const c = document.getElementById('console');
+    c.innerHTML = renderTab(lastState, activeTab);
+    c.scrollTop = 0;
+  }));
+}
+let savedScroll = 0;
+
+const TABS = [
+  { id: 'events', label: 'Eventos' },
+  { id: 'players', label: 'Jogadores' },
+  { id: 'stats', label: 'Meus stats' },
+  { id: 'game', label: 'Partida' },
+  { id: 'fields', label: 'Todos os campos' },
+];
+let activeTab = 'events';
+let lastState = null;
+let consoleOpen = localStorage.getItem('dc.console') === '1';
+// O log abre POR PADRÃO (≠ null só quando o usuário fechou de propósito): ele
+// existe justamente pra ser olhado de relance durante a partida, então nascer
+// fechado derrotaria o motivo de existir.
+let logOpen = localStorage.getItem('dc.log') !== '0';
+let logScroll = 0;
+
+const EVLOG_TAG = { evento: ['ev','API'], transicao: ['tr','mudou'], alerta: ['al','alerta'] };
+
+// O painel do log, numa função só.
+//
+// POR QUE EXTRAÍDO: ele precisa aparecer nos DOIS estados da tela — durante a
+// partida e depois que ela acaba. Duplicar o HTML faria as duas cópias
+// divergirem na primeira vez que alguém mexesse numa delas.
+
+function painelDoLog(s){
+  const linhas = s.log || [];
+  const n = linhas.length;
+  return `
+    <details id="logPanel" ${logOpen ? 'open' : ''}>
+      <summary><span class="sum-t">Log da partida</span><span class="sum-n">${n} linha${n===1?'':'s'}</span></summary>
+      <div class="evlog" id="evlog">${renderLog(linhas)}</div>
+      <div class="evlog-acoes"><button class="btn vsmall" id="btnLimparLog">limpar log</button></div>
+      <div class="hint">Tudo que a API expôs nesta partida, em ordem — do mais recente pro mais antigo.
+        Ele <b>continua aqui depois que a partida acaba</b> — some só quando outra começa, ou no botão acima.
+        Linha com <b>+ alerta</b> pode virar aviso: clicar preenche a caixa de <b>Criar alerta</b> com o pedido pronto.</div>
+    </details>`;
+}
+
+
+function renderLog(linhas){
+  if (!linhas.length) {
+    return '<div class="evlog-linha"><span class="evlog-txt" style="color:var(--ink-3)">Nada registrado ainda — as linhas aparecem conforme a partida acontece.</span></div>';
+  }
+  return linhas.map(l => {
+    const [cls, rot] = EVLOG_TAG[l.fonte] || ['ev','?'];
+    // Tudo que vem da API (nome de campeão, de item, de torre) passa por esc().
+    const acao = l.alertavel
+      ? `<button class="evlog-criar" type="button" title="${esc(l.alertavel.pedido)}"
+           data-pedido="${esc(l.alertavel.pedido)}">+ alerta</button>`
+      : '<span class="evlog-nao" title="a API mostra, mas nenhum gatilho cobre isso">—</span>';
+    return `<div class="evlog-linha">
+      <span class="evlog-t">${mmss(l.t)}</span>
+      <span class="evlog-tag ${cls}">${rot}</span>
+      <span class="evlog-txt">${marcadorCampeao(l.texto)}${esc(l.texto)}</span>
+      ${acao}
+    </div>`;
+  }).join('');
+}
+
+// Leva o pedido pra caixa de criar alerta: abre o painel, preenche e foca.
+// É isso que fecha o ciclo "vi no log → virou alerta" sem o usuário ter que
+// redigitar nem adivinhar o fraseado que o autor de regras entende.
+function prefillAlerta(pedido){
+  const painel = document.getElementById('painelAlertas');
+  if (painel && !painel.open) painel.open = true;
+  const el = document.getElementById('pedidoAlerta');
+  if (!el) return;
+  el.value = pedido;
+  el.focus();
+  el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+function rows(html) { return `<table><tbody>${html}</tbody></table>`; }
+
+function renderTab(s, tab) {
+  if (!s || !s.raw) return '<div class="empty">sem dados</div>';
+  const r = s.raw;
+  if (tab === 'events') {
+    if (!r.events.length) return '<div class="empty">nenhum evento ainda</div>';
+    return rows(r.events.map(e => `<tr>
+      <td class="t">${mmss(e.t)}</td>
+      <td class="ev">${esc(e.name)}</td>
+      <td class="v">${esc(e.detail) || '<span class="dim">—</span>'}</td></tr>`).join(''));
+  }
+  if (tab === 'players') {
+    if (!r.players.length) return '<div class="empty">sem jogadores</div>';
+    return rows(r.players.map(p => `<tr>
+      <td class="${p.team === 'ORDER' ? 'team-order' : 'team-chaos'}">${campeaoComIcone(p.champKey, p.champ)}</td>
+      <td class="k">${esc(p.name)}</td>
+      <td class="v">lvl ${p.lvl} · ${esc(p.kda)} · ${p.cs} cs${p.dead ? ` · <span class="team-chaos">morto ${p.respawn}s</span>` : ''}</td>
+      <td class="dim" title="${esc(p.items)}">${(p.itemIds||[]).length
+        ? `<span class="dd-itens">${p.itemIds.map(id => iconeItem(id)).join('')}</span>`
+        : esc(p.items)}</td></tr>`).join(''));
+  }
+  if (tab === 'stats') {
+    if (!r.stats.length) return '<div class="empty">sem stats</div>';
+    return rows(r.stats.map(x => `<tr><td class="k">${esc(x.k)}</td><td class="v">${esc(x.v)}</td></tr>`).join(''));
+  }
+  if (tab === 'game') {
+    return rows(r.game.map(x => `<tr><td class="k">${esc(x.k)}</td><td class="v">${esc(x.v)}</td></tr>`).join(''));
+  }
+  if (!r.fields.length) return '<div class="empty">sem campos</div>';
+  return rows(r.fields.map(f => `<tr><td class="k">${esc(f.path)}</td><td class="dim">${esc(f.sample)}</td></tr>`).join(''));
+}
+// ---------- áudio ----------
+// O SOM MORA NO SERVIDOR AGORA. Quem escolhe o que toca, dedupa por fireId e
+// manda pro alto-falante é o Node. A página só lista o catálogo e grava.
+//
+// Som e volume viraram do servidor junto com a fala, então estes controles
+// mandam pro servidor em vez de mexer em estado da página. O estado de
+// verdade vem do /state a cada segundo — a página não guarda cópia, senão as
+// duas versões divergem quando algo muda pelo outro lado.
+let catalog = [];
+
+const toggleBtn = document.getElementById('sndToggle');
+const volInput = document.getElementById('vol');
+const statusEl = document.getElementById('sndStatus');
+let catalogResumo = '';
+
+toggleBtn.title = 'Liga e desliga a fala do servidor';
+volInput.title = 'Volume da fala do servidor';
+
+toggleBtn.addEventListener('click', async () => {
+  try{ pintarSom((await (await fetch('/voice/toggle', { method:'POST' })).json()).habilitado); }
+  catch{}
+});
+
+// Só manda ao soltar o slider: 'input' dispararia uma requisição por pixel.
+volInput.addEventListener('change', () => {
+  fetch(`/voice/volume?v=${Number(volInput.value)/100}`, { method:'POST' }).catch(()=>{});
+});
+
+function pintarSom(ligado){
+  toggleBtn.textContent = ligado ? 'Som: ligado' : 'Som: desligado';
+  toggleBtn.classList.toggle('off', !ligado);
+}
+
+// Toca uma amostra PELO SERVIDOR, do mesmo jeito que tocaria em jogo: se você
+// gravou, sai sua voz; se não gravou, não sai nada — que é exatamente o que
+// acontece na partida.
+function play(file){
+  if (!file) return;
+  fetch('/voice/play?som=' + encodeURIComponent(file), { method:'POST' }).catch(()=>{});
+}
+
+// Testar todos: manda o catálogo inteiro pra fila. Quem espaça as falas é o
+// servidor (ele só toca a próxima quando a anterior termina), então aqui é só
+// enfileirar em ordem.
+document.getElementById('testAll').addEventListener('click', async () => {
+  for (const c of catalog) {
+    await fetch('/voice/play?som=' + encodeURIComponent(c.file), { method:'POST' }).catch(()=>{});
+  }
+});
+function handleAlerts(){ /* o servidor toca sozinho */ }
+
+// ---------- voz ----------
+// A VOZ MORA NO SERVIDOR.
+//
+// Antes, esta pagina falava via SpeechSynthesis e tocava os alertas via
+// Audio(). Os dois travavam juntos -- o processo de audio do Chrome. Havia
+// tres camadas de defesa aqui (keep-alive, watchdog, ressuscitar) e ainda
+// assim falhava, porque nao ha correcao pelo lado da pagina.
+//
+// Agora o Node toca a GRAVACAO do usuario. A pagina so mostra o que saiu.
+//
+// (removido) esta secao tambem tinha o painel de narracao, o botao de
+// ligar/desligar o narrador e o "Testar narrador". Sairam com a narracao.
+const vozEl = document.getElementById('voz');
+
+function speak(){ /* servidor fala */ }
+
+// (removido) renderNarration(), paintNarrToggle() e os handlers do
+// "Testar narrador" viviam aqui. Saíram com a narração — não há mais painel
+// de narração nem rota /narrator/*.
+
+// ---------- gravação pela própria página ----------
+// MediaRecorder grava webm/ogg; o servidor resolve o arquivo pelo nome-base,
+// então a extensão que o navegador escolher não importa.
+// `recDono` diz QUEM pediu a gravação: o painel de áudios (padrão) ou o passo
+// de criação de alerta. A máquina é a mesma — muda só onde o status aparece e
+// o que acontece quando o upload termina.
+let recorder = null, recStream = null, recTarget = null, recBtn = null, recTimer = null, recDono = null;
+
+
+
+// ---------------------------------------------------------------------------
+// Soltar (ou escolher) um arquivo de áudio para um alerta.
+//
+// Reaproveita a rota /record/ em vez de criar outra: ela já recebe áudio cru,
+// remove as versões antigas do mesmo nome-base e converte para WAV com ffmpeg.
+// Como a conversão lê qualquer formato que o ffmpeg entenda, um mp3 arrastado
+// segue exatamente o mesmo caminho de uma gravação de microfone -- inclusive o
+// aviso quando o ffmpeg não está instalado.
+//
+// A linha inteira é o alvo do drop. Um quadrado permanente por som ocuparia
+// espaço em 21 linhas para uma ação que se usa uma vez por alerta.
+const AUDIO_OK = /\.(mp3|wav|ogg|m4a|mp4|aac|opus|flac|webm)$/i;
+
+async function enviarArquivo(file, arquivo) {
+  const row = document.querySelector(`.snd[data-row="${CSS.escape(file)}"]`);
+  const badge = row?.querySelector('.badge');
+  if (!AUDIO_OK.test(arquivo.name)) {
+    if (badge) { badge.textContent = 'formato não suportado'; badge.className = 'badge no'; }
+    return;
+  }
+  if (arquivo.size > 8_000_000) {
+    if (badge) { badge.textContent = 'arquivo grande demais'; badge.className = 'badge no'; }
+    return;
+  }
+  if (badge) { badge.textContent = 'enviando…'; badge.className = 'badge'; }
+  try {
+    const r = await fetch('/record/' + encodeURIComponent(file), {
+      method: 'POST',
+      headers: { 'content-type': arquivo.type || 'application/octet-stream' },
+      body: arquivo,
+    });
+    const j = await r.json();
+    if (!j.ok) {
+      if (badge) { badge.textContent = j.error || 'falhou'; badge.className = 'badge no'; }
+      return;
+    }
+    // O servidor avisa quando salvou sem converter: o som existe mas não toca.
+    if (badge) {
+      badge.textContent = j.mudo ? 'salvo, mas mudo' : 'gravado';
+      badge.className = 'badge ' + (j.mudo ? 'no' : 'ok');
+      if (j.aviso) badge.title = j.aviso;
+    }
+    row?.classList.remove('missing');
+    const p = row?.querySelector('.play'); if (p) p.disabled = false;
+    const d = row?.querySelector('.del');  if (d) d.disabled = false;
+    if (!j.mudo) play(file);
+    loadCatalog();
+  } catch (e) {
+    if (badge) { badge.textContent = String(e.message || e); badge.className = 'badge no'; }
+  }
+}
+
+function escolherArquivo(file) {
+  const inp = document.createElement('input');
+  inp.type = 'file';
+  inp.accept = 'audio/*';
+  inp.addEventListener('change', () => {
+    if (inp.files && inp.files[0]) enviarArquivo(file, inp.files[0]);
+  });
+  inp.click();
+}
+
+function ligarDropSons() {
+  document.querySelectorAll('.snd').forEach(row => {
+    if (row.dataset.dropPronto) return;
+    row.dataset.dropPronto = '1';
+    const file = row.dataset.row;
+    // dragenter/over precisam de preventDefault, senão o navegador abre o
+    // arquivo numa aba nova em vez de entregar para a página.
+    const sobre = ev => { ev.preventDefault(); row.classList.add('drop'); };
+    row.addEventListener('dragenter', sobre);
+    row.addEventListener('dragover', sobre);
+    row.addEventListener('dragleave', ev => {
+      // só apaga o destaque quando o ponteiro sai de verdade da linha; sem
+      // isto o realce pisca ao passar sobre os botões filhos
+      if (!row.contains(ev.relatedTarget)) row.classList.remove('drop');
+    });
+    row.addEventListener('drop', ev => {
+      ev.preventDefault();
+      row.classList.remove('drop');
+      const f = ev.dataTransfer?.files?.[0];
+      if (f) enviarArquivo(file, f);
+    });
+  });
+}
+
+// A página inteira precisa recusar o drop fora das linhas, senão soltar por
+// engano no fundo faz o Chrome navegar para o arquivo e perder o painel.
+for (const ev of ['dragover', 'drop']) {
+  window.addEventListener(ev, e => {
+    if (!e.target.closest?.('.snd')) e.preventDefault();
+  });
+}
+
+// ---------------------------------------------------------------------------
+// TTS: escrever a fala em vez de gravar.
+//
+// A gravação por microfone continua valendo — quem quer a própria voz grava.
+// Isto é para quem prefere digitar: o texto já vem preenchido com a sugestão
+// do catálogo, que é a mesma frase que o alerta mostra na tela.
+//
+// As configurações expostas são as que mudam o resultado de verdade: a voz, o
+// quanto o tom desce, e o tamanho do ambiente. O resto da cadeia de efeito é
+// fixo porque ajustar equalizador por slider não ajuda ninguém a decidir nada.
+let TTS_VOZES = null;
+
+async function carregarVozes() {
+  if (TTS_VOZES) return TTS_VOZES;
+  try {
+    const r = await fetch('/tts/vozes');
+    TTS_VOZES = await r.json();
+  } catch { TTS_VOZES = { vozes: [], temChave: false }; }
+  return TTS_VOZES;
+}
+
+function abrirTts(file) {
+  const row = document.querySelector(`.snd[data-row="${CSS.escape(file)}"]`);
+  if (!row) return;
+  row.classList.toggle('tts-open');
+  if (row.classList.contains('tts-open')) row.querySelector('.tts textarea')?.focus();
+}
+
+// Preenche os selects e liga os sliders uma vez por render do catálogo.
+async function ligarPainelTts() {
+  const info = await carregarVozes();
+  document.querySelectorAll('.tts').forEach(panel => {
+    const sel = panel.querySelector('.voz');
+    if (sel && !sel.dataset.pronto) {
+      sel.dataset.pronto = '1';
+      sel.innerHTML = (info.vozes || []).map(v => `<option value="${esc(v.id)}">${esc(v.nome)}</option>`).join('');
+      // lembra a última voz escolhida — o usuário não quer reescolher 21 vezes
+      const salva = localStorage.getItem('dc.ttsVoz');
+      if (salva !== null) sel.value = salva;
+      sel.addEventListener('change', () => localStorage.setItem('dc.ttsVoz', sel.value));
+    }
+    const tom = panel.querySelector('.tom'), eco = panel.querySelector('.eco');
+    if (tom && !tom.dataset.pronto) {
+      tom.dataset.pronto = '1';
+      const salvo = localStorage.getItem('dc.ttsTom');
+      if (salvo) { tom.value = salvo; panel.querySelector('.vtom').textContent = salvo; }
+      tom.addEventListener('input', () => {
+        panel.querySelector('.vtom').textContent = tom.value;
+        localStorage.setItem('dc.ttsTom', tom.value);
+      });
+    }
+    if (eco && !eco.dataset.pronto) {
+      eco.dataset.pronto = '1';
+      const salvo = localStorage.getItem('dc.ttsEco');
+      if (salvo) { eco.value = salvo; panel.querySelector('.veco').textContent = salvo; }
+      eco.addEventListener('input', () => {
+        panel.querySelector('.veco').textContent = eco.value;
+        localStorage.setItem('dc.ttsEco', eco.value);
+      });
+    }
+    const btn = panel.querySelector('.gerar');
+    if (btn && !btn.dataset.pronto) {
+      btn.dataset.pronto = '1';
+      btn.addEventListener('click', () => gerarTts(panel));
+    }
+    // Sem chave no .env o botão não promete o que não pode cumprir.
+    if (!info.temChave) {
+      const st = panel.querySelector('.st');
+      if (st) { st.textContent = 'defina FISH_API_KEY no .env'; st.className = 'st erro'; }
+      if (btn) btn.disabled = true;
+    }
+  });
+}
+
+async function gerarTts(panel) {
+  const file = panel.dataset.ttspanel;
+  const texto = panel.querySelector('textarea').value.trim();
+  const st = panel.querySelector('.st');
+  const btn = panel.querySelector('.gerar');
+  if (!texto) { st.textContent = 'escreva o texto primeiro'; st.className = 'st erro'; return; }
+  btn.disabled = true;
+  st.textContent = 'gerando…'; st.className = 'st';
+  try {
+    const r = await fetch('/tts/' + encodeURIComponent(file), {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        texto,
+        vozId: panel.querySelector('.voz').value,
+        efeito: panel.querySelector('.fx').checked,
+        tom: Number(panel.querySelector('.tom').value),
+        eco: Number(panel.querySelector('.eco').value),
+      }),
+    });
+    const j = await r.json();
+    if (!j.ok) { st.textContent = j.error || 'falhou'; st.className = 'st erro'; btn.disabled = false; return; }
+    st.textContent = `pronto · ${(j.bytes / 1024).toFixed(0)} KB${j.efeito ? ' · com efeito' : ''}`;
+    st.className = 'st ok';
+    // toca na hora: o ponto de gerar é ouvir e decidir se refaz
+    play(file);
+    // O catálogo só redesenha com o painel fechado (ver guarda em
+    // loadCatalog). Marca o estado como gravado na própria linha, sem
+    // redesenhar, para o usuário poder ajustar e gerar de novo sem perder o
+    // texto que escreveu.
+    const row = panel.closest('.snd');
+    if (row) {
+      row.classList.remove('missing');
+      const badge = row.querySelector('.badge');
+      if (badge) { badge.textContent = 'gravado'; badge.className = 'badge ok'; }
+      const btnPlay = row.querySelector('.play');
+      if (btnPlay) btnPlay.disabled = false;
+      const btnDel = row.querySelector('.del');
+      if (btnDel) btnDel.disabled = false;
+    }
+  } catch (e) {
+    st.textContent = String(e.message || e); st.className = 'st erro';
+  }
+  btn.disabled = false;
+}
+
+async function toggleRecord(file, btn, dono){
+  if (recorder && recTarget === file) { stopRecord(); return; }
+  if (recorder) stopRecord();   // já gravando outro: encerra aquele primeiro
+
+  if (!navigator.mediaDevices?.getUserMedia) {
+    alert('Este navegador não permite gravar áudio. Use Chrome ou Edge.');
+    return;
+  }
+  try {
+    recStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  } catch {
+    alert('Permissão de microfone negada. Libere o acesso e tente de novo.');
+    return;
+  }
+  const mime = ['audio/webm;codecs=opus', 'audio/webm', 'audio/ogg;codecs=opus', 'audio/mp4']
+    .find(m => MediaRecorder.isTypeSupported(m)) || '';
+  recorder = new MediaRecorder(recStream, mime ? { mimeType: mime } : undefined);
+  recTarget = file; recBtn = btn; recDono = dono ?? null;
+  // Onde escrever o andamento: o painel de áudios usa a barra de status; o
+  // passo de criação tem a própria linha, ao lado do botão.
+  const diz = m => { if (recDono?.status) recDono.status(m); else statusEl.textContent = m; };
+  const chunks = [];
+  recorder.ondataavailable = e => { if (e.data.size) chunks.push(e.data); };
+  recorder.onstop = async () => {
+    const blob = new Blob(chunks, { type: recorder.mimeType || 'audio/webm' });
+    recStream?.getTracks().forEach(t => t.stop());
+    const target = recTarget, dono = recDono;
+    recorder = null; recStream = null; recTarget = null; recDono = null;
+    if (recBtn) { recBtn.classList.remove('recording'); recBtn.textContent = dono?.rotulo ?? '●'; }
+    recBtn?.closest('.snd')?.classList.remove('rec-active');
+    recBtn = null;
+    clearInterval(recTimer);
+    if (blob.size < 800) { diz('gravação curta demais — tente de novo'); dono?.falhou?.(); return; }
+    diz('salvando…');
+    let ok = false;
+    try {
+      const r = await fetch('/record/' + encodeURIComponent(target), {
+        method: 'POST', headers: { 'content-type': blob.type }, body: blob,
+      });
+      const j = await r.json().catch(() => ({ ok: false, error: `HTTP ${r.status}` }));
+      ok = !!j.ok;
+      diz(ok ? `salvo: ${j.file}` : `erro: ${j.error}`);
+    } catch { diz('falha ao salvar'); }
+    // O dono decide o que fazer depois do upload. Na criação é aqui que o
+    // botão "Criar alerta" destrava: antes disso não há áudio no disco.
+    if (dono) { ok ? dono.pronto?.() : dono.falhou?.(); }
+    else loadCatalog();
+  };
+  recorder.start();
+  btn.classList.add('recording');
+  btn.closest('.snd')?.classList.add('rec-active');
+  let secs = 0;
+  btn.textContent = dono ? '■ Parar' : '■';
+  recTimer = setInterval(() => {
+    secs++;
+    diz(`gravando… ${secs}s (clique em ■ para parar)`);
+    if (secs >= 10) stopRecord();   // trava de segurança
+  }, 1000);
+  diz('gravando… (clique em ■ para parar)');
+}
+
+function stopRecord(){
+  try { recorder?.stop(); } catch { /* já parado */ }
+}
+
+async function loadCatalog(){
+  // não redesenhar durante uma gravação: isso trocaria os botões e perderia
+  // a referência do que está gravando
+  if (recorder) return;
+  // idem com o painel de TTS aberto: o innerHTML abaixo recria as linhas e
+  // apagaria o texto que o usuário está digitando. O poll de 10s fazia
+  // exatamente isso — o campo esvaziava no meio da frase.
+  if (document.querySelector('.snd.tts-open')) return;
+  try{
+    catalog = await (await fetch('/sounds')).json();
+    const have = catalog.filter(c => c.exists).length;
+    const missing = catalog.length - have;
+    catalogResumo = `${have} de ${catalog.length} áudios gravados`;
+    statusEl.textContent = catalogResumo;
+    const warnEl = document.getElementById('sndWarn');
+    if (warnEl) {
+      warnEl.hidden = !missing;
+      if (missing) {
+        const nomes = catalog.filter(c => !c.exists).map(c => c.label).join(', ');
+        warnEl.innerHTML = `<b>${missing} alerta${missing === 1 ? '' : 's'} sem áudio</b> — ` +
+          `aparece${missing === 1 ? '' : 'm'} na tela mas não ${missing === 1 ? 'emite' : 'emitem'} som. ` +
+          `Grave com o <b>●</b> abaixo: ${esc(nomes)}.`;
+      }
+    }
+    const sumN = document.getElementById('sumN');
+    if (sumN) {
+      sumN.textContent = missing
+        ? `${have}/${catalog.length} · ${missing} sem áudio`
+        : `${have}/${catalog.length} · completo`;
+      sumN.className = 'sum-n' + (missing ? ' pend' : '');
+    }
+    // abre sozinho só enquanto houver áudio faltando, e só na primeira carga
+    const panel = document.getElementById('sndPanel');
+    if (panel && !panel.dataset.init) {
+      panel.dataset.init = '1';
+      const pref = localStorage.getItem('dc.sndPanel');
+      panel.open = pref === null ? missing > 0 : pref === '1';
+      panel.addEventListener('toggle', () => localStorage.setItem('dc.sndPanel', panel.open ? '1' : '0'));
+    }
+    document.getElementById('sounds').innerHTML = catalog.map(c => `
+      <div class="snd ${c.exists ? '' : 'missing'}" data-row="${esc(c.file)}">
+        <button class="rec" data-rec="${esc(c.file)}" title="Gravar (segure ou clique para iniciar/parar)">●</button>
+        <button class="arq" data-arq="${esc(c.file)}" title="Escolher um arquivo de áudio (ou arraste um para cá)">📁</button>
+        <button class="tts-btn" data-tts="${esc(c.file)}" title="Escrever o texto e gerar a fala (TTS)">⌨</button>
+        <button class="play" data-file="${esc(c.file)}"
+          title="${c.exists ? 'Ouvir sua gravação' : 'Sem gravação — não toca nada até você gravar'}"
+          ${c.exists ? '' : 'disabled'}>▶</button>
+        <div class="info">
+          <div class="nm">${esc(c.label)}</div>
+          <div class="fl" title="${esc(c.actualFile || c.file)}">${esc(c.actualFile || c.file)}</div>
+          <div class="sg">sugestão: "${esc(c.suggestion)}"</div>
+        </div>
+        <span class="badge ${c.exists ? 'ok' : 'no'}"
+          title="${c.exists ? '' : 'Sem gravação este alerta não emite som — só aparece na tela'}"
+          >${c.exists ? 'gravado' : 'sem áudio · fica mudo'}</span>
+        <button class="del" data-del="${esc(c.file)}" ${c.exists ? '' : 'disabled'} title="Apagar">✕</button>
+        <div class="tts" data-ttspanel="${esc(c.file)}">
+          <textarea rows="2" placeholder="O que a voz deve falar">${esc(c.suggestion || '')}</textarea>
+          <div class="cfg">
+            <label>voz <select class="voz"></select></label>
+            <label title="Menor = mais grave">grave <input type="range" class="tom" min="0.68" max="1" step="0.01" value="0.85"><span class="vtom">0.85</span></label>
+            <label title="0 = seco, 1 = caverna">eco <input type="range" class="eco" min="0" max="1" step="0.05" value="0.35"><span class="veco">0.35</span></label>
+            <label><input type="checkbox" class="fx" checked> efeito</label>
+          </div>
+          <div class="acoes">
+            <button class="gerar">Gerar fala</button>
+            <span class="st"></span>
+          </div>
+        </div>
+      </div>`).join('');
+    // .play pede a amostra ao servidor. Fica desabilitado sem gravação: sem
+    // TTS não há o que tocar, e um botão que não faz nada é pior que um botão
+    // apagado. Gravar e apagar seguem valendo — é pra isso que o painel existe.
+    document.querySelectorAll('.snd .play').forEach(b =>
+      b.addEventListener('click', () => play(b.dataset.file)));
+    document.querySelectorAll('.snd .rec').forEach(b =>
+      b.addEventListener('click', () => toggleRecord(b.dataset.rec, b)));
+    document.querySelectorAll('.snd .tts-btn').forEach(b =>
+      b.addEventListener('click', () => abrirTts(b.dataset.tts)));
+    document.querySelectorAll('.snd .arq').forEach(b =>
+      b.addEventListener('click', () => escolherArquivo(b.dataset.arq)));
+    ligarDropSons();
+    ligarPainelTts();
+    document.querySelectorAll('.snd .del').forEach(b =>
+      b.addEventListener('click', async () => {
+        if (!confirm('Apagar este áudio?')) return;
+        await fetch('/record/' + encodeURIComponent(b.dataset.del), { method: 'DELETE' });
+        loadCatalog();
+      }));
+  }catch{ statusEl.textContent = 'sem catálogo'; }
+}
+loadCatalog();
+setInterval(loadCatalog, 10000);   // detecta áudio novo sem reiniciar
+
+// ---------- painel de draft na mesma tela ----------
+// Draft e partida nunca acontecem ao mesmo tempo, então a tela alterna sozinha:
+// quando o champ select está ativo mostra os dois times, quando a partida
+// começa mostra os objetivos e avisos. O servidor de partida faz proxy do
+// estado do draft.
+function renderDraft(s){
+  const slot = p => `<div class="slot${p.isMe ? ' me' : ''}"><span class="pos">${esc(p.pos)}</span><span class="nm">${campeaoComIcone(p.champKey, p.champ)}</span></div>`;
+  return `
+    <div class="teams">
+      <div class="team mine"><div class="team-h">Seu time</div>${s.myTeam.map(slot).join('')}</div>
+      <div class="team theirs"><div class="team-h">Inimigo</div>${s.enemyTeam.map(slot).join('')}</div>
+    </div>
+    <div class="hint">Cada pick travado aparece escrito no teclado (painel Luzes).</div>`;
+}
+
+const draftPane = document.getElementById('draftPane');
+const DEMO=new URLSearchParams(location.search).get('demo');
+const DEMO_DRAFT=new URLSearchParams(location.search).get('draft');
+
+async function tick(){
+  try{
+    const s = await (await fetch('/state'+(DEMO?'?demo='+DEMO:''))).json();
+    // A versão do CDN vem junto do estado.
+    if (s.ddVersion) DD_VER = s.ddVersion;
+    // Quem está nesta partida — precisa estar pronto ANTES de qualquer render,
+    // porque é o que deixa alerta e log reconhecerem o campeão citado na frase.
+    elencoDaPartida(s);
+
+    // partida ativa manda; senão, checa se há draft rolando
+    let draft = null;
+    if (!s.active) {
+      try{
+        const d = await (await fetch('/draft-state'+(DEMO_DRAFT?'?demo='+DEMO_DRAFT:''))).json();
+        if (d && d.myTeam && d.myTeam.length) draft = d;
+      }catch{ /* servidor de draft fora do ar */ }
+    }
+
+    if (draft) {
+      draftPane.hidden = false;
+      draftPane.innerHTML = renderDraft(draft);
+      document.getElementById('app').innerHTML = '';
+      clock.textContent = '--:--';
+      phaseEl.textContent = draft.phase === 'DEMO' ? 'EXEMPLO — draft' : 'DRAFT AO VIVO';
+      phaseEl.className = 'phase p15';
+    } else {
+      draftPane.hidden = true;
+      draftPane.innerHTML = '';
+      render(s);
+    }
+
+    // Mostra a voz do servidor: qual gravação acabou de tocar.
+    const v = s.voice;
+    if (v && vozEl){
+      const u = v.ultima;
+      vozEl.textContent = u ? `última fala: ${u.texto}` : 'voz pronta';
+      // O botão espelha o servidor, não o clique.
+      pintarSom(v.habilitado);
+    }
+  }
+  catch{ phaseEl.textContent='servidor parado'; }
+}
+// ---------- criar alertas com IA ----------
+// A IA roda SÓ AQUI, na criação. Em partida não há chamada de rede: o servidor
+// avalia a regra compilada e toca a gravação do usuário.
+const pedidoEl = document.getElementById('pedidoAlerta');
+const previaEl = document.getElementById('previaAlerta');
+const erroEl   = document.getElementById('erroAlerta');
+// `regraPendente` é a regra que a IA montou e que AINDA NÃO EXISTE: só vira
+// alerta depois que a voz sobe. `vozPendente` marca que o áudio já está no
+// disco sob o nome dela — e é por isso que descartar precisa avisar o
+// servidor, senão fica um arquivo órfão de um alerta que nunca nasceu.
+let regraPendente = null, vozPendente = false;
+
+const passoGrav  = document.querySelector('.gravacao-passo');
+const btnGravar  = document.getElementById('btnGravarAlerta');
+const btnOuvir   = document.getElementById('btnOuvirAlerta');
+const btnAceitar = document.getElementById('btnAceitarAlerta');
+const gravStatus = document.getElementById('gravacaoStatus');
+
+/** Volta o passo de gravação pro estado "nada gravado". */
+function resetarPassoGravacao(){
+  vozPendente = false;
+  passoGrav.classList.remove('pronta');
+  btnGravar.textContent = '● Gravar';
+  btnGravar.classList.remove('recording');
+  btnOuvir.hidden = true;
+  btnAceitar.disabled = true;
+  gravStatus.textContent = 'nada gravado ainda';
+}
+
+// Recusa e queda de rede chegam pela MESMA porta ({ok:false, motivo}), mas
+// significam coisas opostas: recusa é definitiva (o pedido não cabe na API do
+// jogo), rede é transitória (vale tentar de novo). Dizer "não consegui criar"
+// numa falha de conexão faria o usuário reescrever um pedido que estava certo.
+const PISTAS_DE_REDE = /timeout|tempo limite|network|rede|conex|fetch failed|ECONN|ENOTFOUND|EAI_AGAIN|offline|indispon|503|502|504/i;
+
+function mostrarErroAlerta(msg, rede){
+  const ehRede = rede ?? PISTAS_DE_REDE.test(String(msg));
+  erroEl.className = 'erro-alerta' + (ehRede ? ' rede' : '');
+  erroEl.innerHTML = ehRede
+    ? `<b>Não deu pra falar com a IA agora.</b> ${esc(msg)}<br>` +
+      `O pedido não tem nada de errado — tente de novo em instantes.`
+    : `<b>Não dá pra montar esse alerta.</b> ${esc(msg)}`;
+  erroEl.hidden = false;
+  previaEl.hidden = true;
+}
+
+document.getElementById('btnCriarAlerta').addEventListener('click', async () => {
+  const pedido = pedidoEl.value.trim();
+  if (!pedido) return;
+  const btn = document.getElementById('btnCriarAlerta');
+  btn.disabled = true; btn.textContent = 'pensando…';
+  erroEl.hidden = true; previaEl.hidden = true;
+  try{
+    const resp = await fetch('/alertas/criar', {
+      method:'POST', headers:{'content-type':'application/json'},
+      body: JSON.stringify({ pedido }),
+    });
+    // HTTP quebrado é transporte, não recusa: nem chega a virar JSON.
+    if (!resp.ok) { mostrarErroAlerta(`o servidor respondeu ${resp.status}.`, true); return; }
+    const r = await resp.json();
+
+    if (!r.ok){ mostrarErroAlerta(r.motivo || 'não consegui criar esse alerta'); return; }
+
+    regraPendente = r.regra;
+    resetarPassoGravacao();
+    document.getElementById('previaSugestao').textContent = r.regra.texto;
+    // Texto vindo de modelo: tudo escapado antes de encostar no DOM.
+    document.getElementById('previaRegra').textContent = r.regra.descricao || r.regra.texto;
+
+    // De ONDE vem o dado, em campos reais da API. Vem montado em código no
+    // servidor, não do modelo — por isso não pode ser um caminho inventado.
+    // Os nomes chegam entre crases e viram <code> aqui; o escape acontece
+    // ANTES, então o que a marcação envolve já é texto inerte.
+    const fontesEl = document.getElementById('previaFontes');
+    fontesEl.innerHTML = r.fontes
+      ? `<b>De onde eu leio:</b> ${esc(r.fontes).replace(/`([^`]+)`/g, '<code>$1</code>')}`
+      : '';
+    fontesEl.hidden = !r.fontes;
+
+    // O "confirmo" é a IA declarando QUAL gatilho usou e por quê. Fica como
+    // segunda opinião ao lado dos campos acima: se os dois divergirem, é sinal
+    // de que a leitura em português pode estar certa e o gatilho errado.
+    const confEl = document.getElementById('previaConfirmo');
+    confEl.innerHTML = r.confirmo ? `<b>A IA confirma:</b> ${esc(r.confirmo)}` : '';
+    confEl.hidden = !r.confirmo;
+
+    // Sem banco de partidas não há backtest: a linha só aparece se vier um.
+    const bt = r.backtest;
+    const btEl = document.getElementById('previaBacktest');
+    btEl.hidden = !bt;
+    if (bt) btEl.textContent = bt.simulavel
+      ? `Nas suas últimas ${bt.partidas} partidas teria disparado ${bt.disparos}x (${bt.porPartida} por partida).`
+      : `Não consigo testar no histórico: ${bt.motivo || 'motivo não informado'}`;
+    previaEl.hidden = false;
+  }catch(e){
+    // fetch só rejeita por transporte (rede fora, servidor parado).
+    mostrarErroAlerta('o servidor do coach não respondeu.', true);
+  }finally{
+    btn.disabled = false; btn.textContent = 'Criar';
+  }
+});
+
+// Gravar a voz da regra pendente. O som sobe com o nome que ela VAI ter — o
+// servidor liberou esse nome em /alertas/criar justamente para isto.
+btnGravar.addEventListener('click', () => {
+  if (!regraPendente) return;
+  toggleRecord(`${regraPendente.som}.mp3`, btnGravar, {
+    rotulo: vozPendente ? '● Regravar' : '● Gravar',
+    status: m => { gravStatus.textContent = m; },
+    pronto: () => {
+      vozPendente = true;
+      passoGrav.classList.add('pronta');
+      btnGravar.textContent = '● Regravar';
+      btnOuvir.hidden = false;
+      // Só aqui o alerta pode nascer: o áudio existe no disco.
+      btnAceitar.disabled = false;
+      gravStatus.textContent = 'voz gravada — ouça e confirme, ou regrave';
+    },
+    // Falhou o upload: o alerta continua sem poder nascer. Não mexe no que já
+    // havia gravado antes — uma regravação ruim não apaga a boa.
+    falhou: () => { btnAceitar.disabled = !vozPendente; },
+  });
+});
+
+// Ouvir antes de confirmar: o servidor já tem o arquivo, então basta pedi-lo.
+// `t=` fura o cache do navegador — sem isso a regravação tocaria a versão
+// anterior e o usuário acharia que nada mudou.
+btnOuvir.addEventListener('click', () => {
+  if (!regraPendente) return;
+  new Audio(`/sounds/${encodeURIComponent(regraPendente.som + '.mp3')}?t=${Date.now()}`)
+    .play().catch(() => { gravStatus.textContent = 'não consegui tocar aqui'; });
+});
+
+btnAceitar.addEventListener('click', async () => {
+  // Dupla trava: o botão só destrava com voz gravada, e o servidor recusa
+  // salvar sem arquivo no disco. A do servidor é a que vale.
+  if (!regraPendente || !vozPendente) return;
+  btnAceitar.disabled = true;
+  try{
+    const r = await (await fetch('/alertas/salvar', {
+      method:'POST', headers:{'content-type':'application/json'},
+      body: JSON.stringify({ regra: regraPendente }),
+    })).json();
+    if (!r.ok){ mostrarErroAlerta(r.motivo || 'falha ao salvar'); btnAceitar.disabled = false; return; }
+  }catch{
+    mostrarErroAlerta('não consegui salvar: o servidor não respondeu.', true);
+    btnAceitar.disabled = false; return;
+  }
+  regraPendente = null; vozPendente = false;
+  previaEl.hidden = true;
+  erroEl.hidden = true;
+  pedidoEl.value = '';
+  await carregarAlertas();
+  loadCatalog();
+});
+
+// Limpar o log.
+//
+// Delegado no document e não no botão: o painel do log é reescrito por
+// innerHTML a cada segundo, então um listener preso ao botão morreria no
+// primeiro repaint.
+document.addEventListener('click', async (ev) => {
+  const b = ev.target.closest && ev.target.closest('#btnLimparLog');
+  if (!b) return;
+  b.disabled = true;
+  try{ await fetch('/log/limpar', { method: 'POST' }); }catch{}
+  setTimeout(() => { b.disabled = false; }, 400);
+});
+
+// Descartar não deixa NADA para trás: nem regra (nunca foi salva) nem áudio.
+// Se a voz já tinha subido, ela fica órfã — nenhum alerta a referencia e o
+// catálogo nem a lista. Por isso o servidor precisa ser avisado pra apagá-la.
+async function descartarPendente(){
+  const som = vozPendente ? regraPendente?.som : null;
+  regraPendente = null; vozPendente = false;
+  previaEl.hidden = true;
+  if (recorder) stopRecord();
+  resetarPassoGravacao();
+  if (!som) return;
+  try{
+    await fetch('/alertas/descartar', {
+      method:'POST', headers:{'content-type':'application/json'},
+      body: JSON.stringify({ som }),
+    });
+  }catch{ /* servidor fora: o arquivo fica, mas não há alerta apontando pra ele */ }
+  loadCatalog();
+}
+
+document.getElementById('btnDescartarAlerta').addEventListener('click', descartarPendente);
+
+// Fechar a aba com gravação pendente é a mesma decisão que descartar: o alerta
+// não existe, então o áudio também não deve existir. sendBeacon porque fetch
+// normal é cancelado no unload.
+addEventListener('pagehide', () => {
+  if (!vozPendente || !regraPendente) return;
+  try{
+    navigator.sendBeacon('/alertas/descartar',
+      new Blob([JSON.stringify({ som: regraPendente.som })], { type: 'application/json' }));
+  }catch{ /* navegador sem sendBeacon: sobra o arquivo, sem alerta apontando */ }
+});
+
+async function carregarAlertas(){
+  try{
+    const { alertas } = await (await fetch('/alertas')).json();
+    const lista = document.getElementById('listaAlertas');
+    document.getElementById('alertasResumo').textContent =
+      alertas.length ? `${alertas.length} seu${alertas.length === 1 ? '' : 's'}` : '';
+
+    lista.innerHTML = alertas.map(a => `
+      <div class="alerta-item">
+        <div class="an">
+          ${esc(a.texto)}
+          <span class="ped">${esc(a.pedido || '')}</span>
+        </div>
+        <button class="btn vsmall" data-apagar="${esc(a.id)}">apagar</button>
+      </div>`).join('') || '<div class="vazio">nenhum alerta seu ainda</div>';
+
+    lista.querySelectorAll('[data-apagar]').forEach(b =>
+      b.addEventListener('click', async () => {
+        await fetch('/alertas/' + encodeURIComponent(b.dataset.apagar), { method:'DELETE' });
+        await carregarAlertas();
+        loadCatalog();
+      }));
+  }catch{ /* servidor fora do ar: a lista simplesmente não atualiza */ }
+}
+
+carregarAlertas();
+
+// --- aba Luzes ---
+async function luzStatus(){
+  const el = document.getElementById('luzStatus');
+  const resumo = document.getElementById('luzResumo');
+  try {
+    const s = await (await fetch('/rgb/status')).json();
+    if (s.daemon === false) {
+      el.textContent = 'Daemon de luzes desligado — rode npm run coach (ele sobe junto).';
+      resumo.textContent = 'offline'; return;
+    }
+    const d = s.dispositivos || {};
+    const disp = [['teclado', d.teclado], ['RAM', d.ram], ['placa', d.placa]]
+      .map(([n, v]) => `${n} ${v ? '✓' : '✗'}`).join(' · ');
+    el.textContent = s.openrgb
+      ? `OpenRGB conectado · ${disp}` + (s.efeitoAtual ? ` · tocando: ${s.efeitoAtual}` : '')
+        + (s.partida ? ' · em partida' : '') + (s.aguaPendente ? ' · água pendente' : '')
+      : 'Daemon ligado, mas o OpenRGB não respondeu (servidor fechado?). Tentando de novo a cada 5 s.';
+    resumo.textContent = s.openrgb ? 'conectado' : 'sem OpenRGB';
+  } catch { el.textContent = 'Coach sem resposta.'; }
+}
+{
+  const painel = document.getElementById('painelLuzes');
+  painel.open = localStorage.getItem('dc.luzes') === '1';
+  painel.addEventListener('toggle', () => {
+    localStorage.setItem('dc.luzes', painel.open ? '1' : '0');
+    if (painel.open) luzStatus();
+  });
+  setInterval(() => { if (painel.open) luzStatus(); }, 2000);
+  const post = (url, corpo) => fetch(url, { method: 'POST', headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(corpo || {}) }).then(luzStatus);
+  painel.addEventListener('click', e => {
+    const b = e.target.closest('[data-efeito]');
+    if (!b) return;
+    const params = {};
+    if (b.dataset.n) params.n = Number(b.dataset.n);
+    if (b.dataset.tipo) params.tipo = b.dataset.tipo;
+    if (b.dataset.segundos) params.segundos = Number(b.dataset.segundos);
+    if (b.dataset.nome) params.nome = b.dataset.nome;
+    if (b.dataset.lado) params.lado = b.dataset.lado;
+    if (b.dataset.campeao) params.campeao = b.dataset.campeao;
+    post('/rgb/testar', { efeito: b.dataset.efeito, params });
+  });
+  document.getElementById('luzSequencia').addEventListener('click', () => post('/rgb/sequencia'));
+  // Vários picks de uma vez: testa a fila (nenhum nome atropela o outro).
+  document.getElementById('luzDraft').addEventListener('click', async () => {
+    for (const [nome, lado] of [['Caitlyn','aliado'],['Nautilus','inimigo'],["Kai'Sa",'inimigo'],['Ahri','eu'],['Dr. Mundo','aliado']])
+      await post('/rgb/testar', { efeito: 'campeao', params: { nome, lado } });
+  });
+  document.getElementById('luzReset').addEventListener('click', () => post('/rgb/reset'));
+  luzStatus();
+}
+
+tick(); setInterval(tick,1000);
+</script>
+</body>
+</html>
