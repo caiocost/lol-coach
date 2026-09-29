@@ -16,7 +16,10 @@ log = projeto & "\coach\autostart.log"
 shell.CurrentDirectory = projeto
 
 ' Redireciona saída e erro pro log: sem isso uma falha no boot fica invisível.
-cmd = "cmd /c node " & Chr(34) & projeto & "\coach\start.mjs" & Chr(34) & _
+Dim node
+node = "node"
+If fso.FileExists(projeto & "\runtime\node.exe") Then node = Chr(34) & projeto & "\runtime\node.exe" & Chr(34)
+cmd = "cmd /c " & node & " " & Chr(34) & projeto & "\coach\start.mjs" & Chr(34) & _
       " >> " & Chr(34) & log & Chr(34) & " 2>&1"
 
 ' 0 = janela oculta; False = não espera terminar

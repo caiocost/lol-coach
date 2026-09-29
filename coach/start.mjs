@@ -95,7 +95,10 @@ if (!encerrando) {
   // filho derruba todos — e sem Python/OpenRGB o coach tem que seguir igual.
   const LUZ = { nome: "luzes", porta: 7779, cor: "\x1b[35m" };
   if (await portaLivre(LUZ.porta)) {
-    const luz = spawn(process.platform === "win32" ? "python" : "python3", ["-u", "rgb/rgb_daemon.py", "--porta", String(LUZ.porta)], {
+    // No pacote portátil o Python vem embutido em runtime/python; fora dele, o do PATH.
+    const PY = existsSync("runtime/python/python.exe") ? "runtime/python/python.exe"
+      : process.platform === "win32" ? "python" : "python3";
+    const luz = spawn(PY, ["-u", "rgb/rgb_daemon.py", "--porta", String(LUZ.porta)], {
       stdio: ["ignore", "pipe", "pipe"],
     });
     luz.on("error", () => console.error(`  ${LUZ.cor}${LUZ.nome}${RESET}  python não encontrado — coach segue sem luzes`));

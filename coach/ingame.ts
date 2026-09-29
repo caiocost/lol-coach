@@ -979,7 +979,8 @@ createServer(async (req, res) => {
       chunks.push(c as Buffer);
     }
     const ct = String(req.headers["content-type"] ?? "");
-    const ext = ct.includes("ogg") ? "ogg" : ct.includes("mp4") ? "m4a" : "webm";
+    const ext = ct.includes("wav") ? "wav" : ct.includes("mpeg") || ct.includes("mp3") ? "mp3"
+      : ct.includes("ogg") ? "ogg" : ct.includes("mp4") || ct.includes("m4a") ? "m4a" : "webm";
     const base = wanted.replace(/\.[^.]+$/, "");
 
     try {
@@ -1006,6 +1007,14 @@ createServer(async (req, res) => {
       // instalado, guarda o original e AVISA no retorno, em vez de gravar um
       // arquivo mudo fingindo sucesso.
       const bruto = Buffer.concat(chunks);
+      // A página já converte para WAV no navegador; WAV e MP3 o Windows toca
+      // direto, sem precisar de ffmpeg.
+      if (ext === "wav" || ext === "mp3") {
+        await writeFile(new URL(encodeURIComponent(`${base}.${ext}`), SOUND_DIR), bruto);
+        res.writeHead(200, { "content-type": "application/json" });
+        res.end(JSON.stringify({ ok: true, file: `${base}.${ext}`, bytes: size }));
+        return;
+      }
       const destinoWav = fileURLToPath(new URL(encodeURIComponent(`${base}.wav`), SOUND_DIR));
       const convertido = await paraWav(bruto, destinoWav);
       if (!convertido) {
