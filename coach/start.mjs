@@ -12,6 +12,14 @@ import { spawn } from "node:child_process";
 import { createServer } from "node:http";
 
 import { existsSync } from "node:fs";
+import "dotenv/config";
+
+// Portas: padrão 7777/7778/7779, trocáveis no .env. Os filhos herdam o env,
+// então o RGB_URL definido aqui é o que o draft e o in-game vão usar.
+const PORTA_DRAFT = Number(process.env.DRAFT_PORT ?? 7777);
+const PORTA_INGAME = Number(process.env.INGAME_PORT ?? 7778);
+const PORTA_LUZ = Number(process.env.RGB_PORT ?? 7779);
+process.env.RGB_URL ??= `http://127.0.0.1:${PORTA_LUZ}`;
 
 // Executa o CLI do tsx com o próprio Node. Isso evita duas armadilhas do
 // Windows: `.cmd` precisa de shell (spawn EINVAL sem ele), e shell com args
@@ -25,8 +33,8 @@ if (!existsSync(TSX_CLI)) {
 }
 
 const PROCESSOS = [
-  { nome: "draft ", porta: 7777, arquivo: "coach/server.ts", cor: "\x1b[36m" },
-  { nome: "ingame", porta: 7778, arquivo: "coach/ingame.ts", cor: "\x1b[33m" },
+  { nome: "draft ", porta: PORTA_DRAFT, arquivo: "coach/server.ts", cor: "\x1b[36m" },
+  { nome: "ingame", porta: PORTA_INGAME, arquivo: "coach/ingame.ts", cor: "\x1b[33m" },
 ];
 const RESET = "\x1b[0m";
 
@@ -93,7 +101,7 @@ if (!encerrando) {
 
   // Luzes RGB: opcional. Fica FORA de PROCESSOS porque lá a saída de um
   // filho derruba todos — e sem Python/OpenRGB o coach tem que seguir igual.
-  const LUZ = { nome: "luzes", porta: 7779, cor: "\x1b[35m" };
+  const LUZ = { nome: "luzes", porta: PORTA_LUZ, cor: "\x1b[35m" };
   if (await portaLivre(LUZ.porta)) {
     // No pacote portátil o Python vem embutido em runtime/python; fora dele, o do PATH.
     const PY = existsSync("runtime/python/python.exe") ? "runtime/python/python.exe"
@@ -116,8 +124,8 @@ if (!encerrando) {
   }
 
   console.log(`
-  LoL Coach       http://localhost:7778   <- deixe esta aberta
-  (draft 7777 e luzes 7779 rodam por trás)
+  LoL Coach       http://localhost:${PORTA_INGAME}   <- deixe esta aberta
+  (draft ${PORTA_DRAFT} e luzes ${PORTA_LUZ} rodam por trás)
 
   A página mostra o draft e a partida ao vivo, e é onde se gravam os
   áudios e se criam alertas. Ctrl+C encerra tudo.

@@ -80,7 +80,7 @@ Tudo é opcional — copie `.env.example` para `.env`.
 | `FISH_API_KEY` | gerar a fala por texto (TTS) |
 | `LOL_LOCKFILE` | cliente instalado fora de `C:/` ou `D:/Riot Games/...` |
 | `RGB_TECLADO`, `RGB_RAM`, `RGB_PLACA` | escolher o dispositivo pelo nome |
-| `DRAFT_PORT`, `INGAME_PORT`, `RGB_URL` | trocar as portas |
+| `DRAFT_PORT`, `INGAME_PORT`, `RGB_PORT` | trocar as portas |
 | `COACH_VOZ=0` | subir com a voz desligada |
 
 Os alertas que você cria ficam em `data/alertas.json`; os áudios, em
