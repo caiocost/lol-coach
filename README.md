@@ -26,15 +26,33 @@ APIs locais que o próprio jogo expõe. Sem Overwolf, sem injeção, sem overlay
 
 ## Instalar (qualquer PC com Windows)
 
+Abra o **PowerShell** (tecla Windows, digite `powershell`, Enter) e cole:
+
+```powershell
+irm https://raw.githubusercontent.com/caiocost/lol-coach/main/instalar.ps1 | iex
+```
+
+Ele baixa a versão mais nova, instala em `%LOCALAPPDATA%\LoL-Coach`, cria o
+atalho **LoL Coach** no Menu Iniciar e na Área de Trabalho e abre a tela em
+http://localhost:7778. Para atualizar, rode o mesmo comando de novo: suas vozes
+gravadas, alertas e `.env` são mantidos.
+
+Não precisa instalar Node, Python nem ffmpeg, porque vem tudo dentro do pacote.
+Instalado assim, o Windows **não** mostra o aviso "O Windows protegeu o
+computador": o aviso só aparece em arquivo baixado pelo navegador.
+
+<details>
+<summary>Instalar pelo zip, sem o PowerShell</summary>
+
 1. Baixe o **`LoL-Coach-vX.Y.Z-win-x64.zip`** na página de
    [Releases](https://github.com/caiocost/lol-coach/releases/latest).
-2. Extraia numa pasta qualquer.
-3. Dê dois cliques em **`Iniciar Coach.cmd`**. A tela abre sozinha em
-   http://localhost:7778.
+2. **Antes de extrair**: botão direito no zip → Propriedades → marque
+   **Desbloquear** → OK. Isso evita o aviso do Windows.
+3. Extraia numa pasta qualquer e dê dois cliques em **`Iniciar Coach.cmd`**.
 
-Não precisa instalar Node, Python nem ffmpeg — vem tudo dentro do zip. Se o
-Windows mostrar "O Windows protegeu o computador", clique em **Mais
-informações → Executar assim mesmo** (o arquivo não é assinado).
+Se esquecer o passo 2 e o aviso aparecer, clique em **Mais informações →
+Executar assim mesmo** (o arquivo não é assinado).
+</details>
 
 Para as luzes: instale o [OpenRGB](https://openrgb.org), abra e ligue o
 **SDK Server** (aba SDK Server → Start Server, porta 6742). Sem ele o coach
@@ -90,7 +108,7 @@ Tudo é opcional — copie `.env.example` para `.env`.
 | `LOL_LOCKFILE` | cliente instalado fora de `C:/` ou `D:/Riot Games/...` |
 | `RGB_TECLADO`, `RGB_RAM`, `RGB_PLACA` | escolher o dispositivo pelo nome |
 | `DRAFT_PORT`, `INGAME_PORT`, `RGB_PORT` | trocar as portas |
-| `COACH_VOZ=0` | subir com a voz desligada |
+| `COACH_VOZ=1` | subir com a voz ligada (o padrão é desligada) |
 
 Os alertas que você cria ficam em `data/alertas.json`; os áudios, em
 `coach/sounds/`.
