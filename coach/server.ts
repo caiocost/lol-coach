@@ -165,5 +165,5 @@ createServer((req, res) => {
   res.writeHead(302, { location: `http://localhost:${process.env.INGAME_PORT ?? 7778}/` });
   res.end();
 }).listen(PORT, () => {
-  console.log(`\n  Draft em http://localhost:${PORT}/state (a tela é a do in-game, 7778)\n`);
+  console.log(`\n  Draft em http://localhost:${PORT}/state (a tela é a do in-game, ${process.env.INGAME_PORT ?? 7778})\n`);
 });

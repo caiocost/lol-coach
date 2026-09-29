@@ -24,16 +24,25 @@ APIs locais que o próprio jogo expõe. Sem Overwolf, sem injeção, sem overlay
 
 ![tela](docs/tela.png)
 
-## Requisitos
+## Instalar (qualquer PC com Windows)
 
-- Windows, League of Legends instalado
-- [Node.js](https://nodejs.org) 20+
-- [ffmpeg](https://ffmpeg.org) no PATH — converte as gravações do navegador
-  para WAV (sem ele o áudio é salvo, mas o Windows não toca)
-- Opcional, para as luzes: Python 3.10+ e o [OpenRGB](https://openrgb.org)
-  com o **SDK Server** ligado (porta 6742)
+1. Baixe o **`LoL-Coach-vX.Y.Z-win-x64.zip`** na página de
+   [Releases](https://github.com/caiocost/lol-coach/releases/latest).
+2. Extraia numa pasta qualquer.
+3. Dê dois cliques em **`Iniciar Coach.cmd`**. A tela abre sozinha em
+   http://localhost:7778.
 
-## Instalar e rodar
+Não precisa instalar Node, Python nem ffmpeg — vem tudo dentro do zip. Se o
+Windows mostrar "O Windows protegeu o computador", clique em **Mais
+informações → Executar assim mesmo** (o arquivo não é assinado).
+
+Para as luzes: instale o [OpenRGB](https://openrgb.org), abra e ligue o
+**SDK Server** (aba SDK Server → Start Server, porta 6742). Sem ele o coach
+funciona igual, só sem luzes.
+
+## Rodar pelo código-fonte
+
+Requer [Node.js](https://nodejs.org) 20+ (e Python 3.10+ para as luzes).
 
 ```bash
 git clone https://github.com/caiocost/lol-coach.git
@@ -96,6 +105,15 @@ Os alertas que você cria ficam em `data/alertas.json`; os áudios, em
 
 A Live Client API só expõe o seu placar e eventos globais: não dá posição no
 mapa, ouro do time nem wards. Os avisos usam só o que ela entrega de verdade.
+
+## Gerar o pacote portátil
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\empacotar.ps1 -Versao 1.1.0
+```
+
+Sai em `dist/` um zip com `node.exe`, Python embutido + `openrgb-python` e o
+launcher.
 
 ## Testes
 

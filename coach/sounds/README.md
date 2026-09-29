@@ -22,8 +22,7 @@ Os alertas que você cria em **Criar alerta** entram nesta lista sozinhos.
 ## Gravar pela tela
 
 Abra `http://localhost:7778`, painel **Áudios dos alertas**, clique em **●**,
-fale e clique em **■**. Salva com o nome certo e converte para WAV (precisa do
-ffmpeg). O navegador pede permissão de microfone na primeira vez; a gravação
+fale e clique em **■**. Salva com o nome certo e converte para WAV no próprio navegador. O navegador pede permissão de microfone na primeira vez; a gravação
 para sozinha em 10s.
 
 Dicas: curto (1 a 2 segundos) e com a sua voz — é mais fácil de reconhecer no
