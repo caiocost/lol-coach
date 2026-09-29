@@ -1,6 +1,6 @@
 {
   "name": "lol-coach",
-  "version": "1.1.1",
+  "version": "1.2.0",
   "description": "Coach ao vivo para League of Legends: avisos de objetivo, alertas por voz gravada e luzes RGB no teclado via OpenRGB.",
   "type": "module",
   "license": "MIT",
