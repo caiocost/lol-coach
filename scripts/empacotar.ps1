@@ -11,7 +11,10 @@
 param(
   [Parameter(Mandatory = $true)][string]$Versao,
   [string]$NodeVersion = "24.14.1",
-  [string]$PyVersion = "3.12.10"
+  [string]$PyVersion = "3.12.10",
+  # OpenRGB portatil (GPL-2.0). Trocar a versao = trocar as duas linhas.
+  [string]$OpenRgbTag = "release_1.0",
+  [string]$OpenRgbZip = "OpenRGB_1.0_Windows_64_81bbe18.zip"
 )
 
 $ErrorActionPreference = "Stop"
@@ -72,7 +75,30 @@ if ($LASTEXITCODE -ne 0) { throw "pip falhou" }
 $pth = Get-ChildItem $py -Filter "python*._pth" | Select-Object -First 1
 Add-Content -Path $pth.FullName -Value "Lib\site-packages" -Encoding ASCII
 
-# 5. Zip final.
+# 5. OpenRGB portatil, para as luzes funcionarem sem instalar nada.
+# O start.mjs sobe ele sem janela (--server) quando nao ha outro OpenRGB aberto.
+$orgbZip = Join-Path $Cache $OpenRgbZip
+Baixar "https://codeberg.org/OpenRGB/OpenRGB/releases/download/$OpenRgbTag/$OpenRgbZip" $orgbZip
+$orgbTmp = Join-Path $Cache "openrgb-$OpenRgbTag"
+if (-not (Test-Path $orgbTmp)) { Expand-Archive $orgbZip -DestinationPath $orgbTmp }
+$orgbExe = Get-ChildItem $orgbTmp -Recurse -Filter "OpenRGB.exe" | Select-Object -First 1
+if (-not $orgbExe) { throw "OpenRGB.exe nao encontrado em $OpenRgbZip" }
+$orgb = Join-Path $runtime "openrgb"
+Copy-Item $orgbExe.Directory.FullName $orgb -Recurse
+# GPL-2.0: vai junto a licenca e onde achar o codigo-fonte desta versao.
+Baixar "https://codeberg.org/OpenRGB/OpenRGB/raw/tag/$OpenRgbTag/LICENSE" (Join-Path $Cache "OPENRGB-LICENSE-$OpenRgbTag.txt")
+Copy-Item (Join-Path $Cache "OPENRGB-LICENSE-$OpenRgbTag.txt") (Join-Path $orgb "LICENSE.txt")
+Set-Content -Path (Join-Path $orgb "LEIA-ME.txt") -Encoding ASCII -Value @(
+  "OpenRGB - https://openrgb.org - licenciado sob a GNU GPL versao 2 (LICENSE.txt).",
+  "Binario oficial sem modificacoes: $OpenRgbZip",
+  "Codigo-fonte desta versao: https://codeberg.org/OpenRGB/OpenRGB/src/tag/$OpenRgbTag",
+  "",
+  "O LoL Coach abre este OpenRGB sozinho, sem janela, quando nenhum outro esta aberto.",
+  "RAM e algumas placas-mae precisam do driver PawnIO (https://pawnio.eu) e do OpenRGB",
+  "rodando como administrador. O teclado funciona sem isso."
+)
+
+# 6. Zip final.
 Write-Host "  compactando"
 Compress-Archive -Path $Pasta -DestinationPath $Zip -CompressionLevel Optimal
 $mb = [math]::Round((Get-Item $Zip).Length / 1MB, 1)

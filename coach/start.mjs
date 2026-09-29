@@ -99,6 +99,26 @@ if (!encerrando) {
     });
   }
 
+  // OpenRGB embarcado (runtime/openrgb no pacote portátil). Só sobe se NINGUÉM
+  // estiver servindo na 6742: quem já tem o OpenRGB aberto continua usando o
+  // dele. Sem --gui ele roda sem janela; sem admin enxerga os dispositivos USB
+  // (teclado, placa com controlador USB), mas não a RAM, que precisa do PawnIO.
+  // OPENRGB_AUTO=0 no .env desliga.
+  const ORGB_EXE = process.env.OPENRGB_EXE ?? "runtime/openrgb/OpenRGB.exe";
+  if (process.env.OPENRGB_AUTO !== "0" && existsSync(ORGB_EXE)) {
+    const cor = "[35m";
+    if (await portaLivre(6742)) {
+      const orgb = spawn(ORGB_EXE, ["--server", "--server-port", "6742", "--localconfig", "--noautoconnect"], {
+        stdio: "ignore",
+      });
+      orgb.on("error", (e) => console.error(`  ${cor}openrgb${RESET} não abriu (${e.message}) — coach segue sem luzes`));
+      filhos.push(orgb);
+      console.log(`  ${cor}openrgb${RESET} servidor embarcado subindo na 6742 (a detecção leva alguns segundos)`);
+    } else {
+      console.log(`  ${cor}openrgb${RESET} já tem um OpenRGB na 6742 — usando ele`);
+    }
+  }
+
   // Luzes RGB: opcional. Fica FORA de PROCESSOS porque lá a saída de um
   // filho derruba todos — e sem Python/OpenRGB o coach tem que seguir igual.
   const LUZ = { nome: "luzes", porta: PORTA_LUZ, cor: "\x1b[35m" };
